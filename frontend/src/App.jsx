@@ -10,8 +10,8 @@ export default function App() {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <Sidebar />
-      <main className="flex-1 overflow-y-auto scrollbar-thin">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="flex-1 overflow-y-auto scrollbar-thin pt-14 md:pt-0">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/loans" element={<Loans />} />

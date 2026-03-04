@@ -114,24 +114,24 @@ export default function Loans() {
               <Link
                 key={loan.id}
                 to={`/loans/${loan.id}`}
-                className="group block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:shadow-md"
+                className="group block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:shadow-md sm:p-5"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 text-base font-bold text-emerald-700">
+                <div className="flex items-start justify-between gap-3 sm:items-center">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700 sm:h-11 sm:w-11 sm:text-base">
                       {loan.borrower_name.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-800">
+                      <h3 className="text-sm font-semibold text-slate-800 sm:text-base">
                         {loan.borrower_name}
                       </h3>
                       <p className="mt-0.5 text-xs text-slate-400">
-                        Loan date: {loan.loan_date} &middot; EMI starts:{" "}
-                        {loan.cycle_start_date}
+                        <span className="hidden sm:inline">Loan date: {loan.loan_date} &middot; EMI starts: {loan.cycle_start_date}</span>
+                        <span className="sm:hidden">{formatCurrency(loan.principal)} &middot; {loan.total_months}mo</span>
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-5">
+                  <div className="flex shrink-0 items-center gap-2 sm:gap-5">
                     <div className="hidden text-right sm:block">
                       <p className="text-sm font-bold text-slate-800">
                         {formatCurrency(loan.principal)}
@@ -151,7 +151,7 @@ export default function Loans() {
                       <p className="text-xs text-slate-400">Remaining</p>
                     </div>
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      className={`hidden rounded-full px-2.5 py-1 text-xs font-semibold sm:inline ${
                         loan.status === "active"
                           ? "bg-emerald-50 text-emerald-700"
                           : "bg-slate-100 text-slate-600"
@@ -161,13 +161,13 @@ export default function Loans() {
                     </span>
                     <button
                       onClick={(e) => handleDelete(e, loan.id)}
-                      className="rounded-lg p-2 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"
+                      className="hidden rounded-lg p-2 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 sm:block"
                     >
                       <Trash2 size={15} />
                     </button>
                     <ArrowRight
                       size={16}
-                      className="text-slate-300 transition-colors group-hover:text-emerald-500"
+                      className="hidden text-slate-300 transition-colors group-hover:text-emerald-500 sm:block"
                     />
                   </div>
                 </div>

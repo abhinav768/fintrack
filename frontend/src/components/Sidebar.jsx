@@ -1,10 +1,13 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   HandCoins,
   PlusCircle,
   Users,
   IndianRupee,
+  Menu,
+  X,
 } from "lucide-react";
 
 const links = [
@@ -15,8 +18,15 @@ const links = [
 ];
 
 export default function Sidebar() {
-  return (
-    <aside className="flex h-full w-64 flex-col border-r border-slate-200 bg-white">
+  const [open, setOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    setOpen(false);
+  }, [location.pathname]);
+
+  const navContent = (
+    <>
       <div className="flex items-center gap-3 px-6 py-6">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
           <IndianRupee size={22} />
@@ -52,6 +62,50 @@ export default function Sidebar() {
           4% / month &middot; flexible tenure
         </p>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Mobile top bar */}
+      <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 md:hidden">
+        <button
+          onClick={() => setOpen(true)}
+          className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100"
+        >
+          <Menu size={22} />
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
+            <IndianRupee size={16} />
+          </div>
+          <span className="text-sm font-bold text-slate-800">FinTrack</span>
+        </div>
+      </div>
+
+      {/* Mobile overlay drawer */}
+      {open && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setOpen(false)}
+          />
+          <aside className="relative flex h-full w-64 flex-col bg-white shadow-xl">
+            <button
+              onClick={() => setOpen(false)}
+              className="absolute right-3 top-5 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            >
+              <X size={18} />
+            </button>
+            {navContent}
+          </aside>
+        </div>
+      )}
+
+      {/* Desktop sidebar */}
+      <aside className="hidden h-full w-64 flex-col border-r border-slate-200 bg-white md:flex">
+        {navContent}
+      </aside>
+    </>
   );
 }

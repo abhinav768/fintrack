@@ -194,13 +194,13 @@ export default function LoanDetail() {
           {loan.schedule.map((month) => (
             <div
               key={month.month_number}
-              className={`flex items-center justify-between px-6 py-4 ${
+              className={`px-4 py-4 sm:px-6 ${
                 month.paid ? "bg-emerald-50/40" : ""
               }`}
             >
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold sm:h-10 sm:w-10 ${
                     month.paid
                       ? "bg-emerald-100 text-emerald-700"
                       : "bg-slate-100 text-slate-500"
@@ -208,52 +208,55 @@ export default function LoanDetail() {
                 >
                   {month.month_number}
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-700">
-                    Month {month.month_number} &mdash;{" "}
-                    {formatDate(month.due_date)}
-                  </p>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-400">
-                    <IndianRupee size={11} />
-                    {formatCurrency(month.expected_amount)} expected
-                    {month.paid && month.notes && (
-                      <span className="ml-1 text-slate-400">
-                        &middot; {month.notes}
-                      </span>
-                    )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700">
+                        Month {month.month_number} &mdash;{" "}
+                        {formatDate(month.due_date)}
+                      </p>
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-400">
+                        <IndianRupee size={11} />
+                        {formatCurrency(month.expected_amount)} expected
+                        {month.paid && month.notes && (
+                          <span className="ml-1 text-slate-400">
+                            &middot; {month.notes}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      {month.paid ? (
+                        <>
+                          <div className="text-right">
+                            <div className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
+                              <CheckCircle2 size={15} />
+                              {formatCurrency(month.paid_amount)}
+                            </div>
+                            <p className="text-xs text-slate-400">
+                              {formatFullDate(month.payment_date)}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleDeletePayment(month.payment_id)}
+                            className="rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                            title="Remove payment"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => setPayModal(month)}
+                          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 sm:text-sm"
+                        >
+                          <Plus size={14} />
+                          <span className="hidden sm:inline">Record</span> Pay
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {month.paid ? (
-                  <>
-                    <div className="text-right">
-                      <div className="flex items-center gap-1.5 text-sm font-semibold text-emerald-600">
-                        <CheckCircle2 size={15} />
-                        {formatCurrency(month.paid_amount)}
-                      </div>
-                      <p className="text-xs text-slate-400">
-                        Paid on {formatFullDate(month.payment_date)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleDeletePayment(month.payment_id)}
-                      className="rounded-lg p-2 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                      title="Remove payment"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => setPayModal(month)}
-                    className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
-                  >
-                    <Plus size={14} />
-                    Record Payment
-                  </button>
-                )}
               </div>
             </div>
           ))}
