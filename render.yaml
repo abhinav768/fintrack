@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: fintrack
+    runtime: docker
+    dockerfilePath: ./Containerfile
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
