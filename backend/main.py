@@ -51,36 +51,46 @@ def get_dashboard(db: Session = Depends(get_db)):
 INITIAL_BALANCE = 53600.0
 
 
-def _get_base_balance(db: Session) -> float:
-    row = db.query(models.AppConfig).filter(models.AppConfig.key == "base_balance").first()
+def _get_config(db: Session, key: str, default: str = "0") -> str:
+    row = db.query(models.AppConfig).filter(models.AppConfig.key == key).first()
+    return row.value if row else default
+
+
+def _set_config(db: Session, key: str, value: str):
+    row = db.query(models.AppConfig).filter(models.AppConfig.key == key).first()
     if row:
-        return float(row.value)
-    return INITIAL_BALANCE
+        row.value = value
+    else:
+        db.add(models.AppConfig(key=key, value=value))
 
 
 @app.get("/api/balance")
 def get_balance(db: Session = Depends(get_db)):
-    base = _get_base_balance(db)
-    total_collected = (
+    base = float(_get_config(db, "base_balance", str(INITIAL_BALANCE)))
+    snapshot = float(_get_config(db, "collections_snapshot", "0"))
+
+    total_collected = float(
         db.query(func.coalesce(func.sum(models.Payment.amount), 0)).scalar()
     )
+    new_collections = total_collected - snapshot
+
     return {
         "base_balance": base,
-        "collections": float(total_collected),
-        "current_balance": base + float(total_collected),
+        "new_collections": new_collections,
+        "current_balance": base + new_collections,
+        "total_collected": total_collected,
     }
 
 
 @app.put("/api/balance")
 def update_base_balance(data: schemas.BalanceUpdate, db: Session = Depends(get_db)):
-    row = db.query(models.AppConfig).filter(models.AppConfig.key == "base_balance").first()
-    if row:
-        row.value = str(data.base_balance)
-    else:
-        row = models.AppConfig(key="base_balance", value=str(data.base_balance))
-        db.add(row)
+    total_collected = float(
+        db.query(func.coalesce(func.sum(models.Payment.amount), 0)).scalar()
+    )
+    _set_config(db, "base_balance", str(data.base_balance))
+    _set_config(db, "collections_snapshot", str(total_collected))
     db.commit()
-    return {"base_balance": data.base_balance}
+    return {"base_balance": data.base_balance, "snapshot": total_collected}
 
 
 # ── Monthly Collection ────────────────────────────────────────────────────────

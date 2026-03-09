@@ -133,7 +133,7 @@ export default function Dashboard() {
             </div>
             <div className="flex flex-wrap items-center gap-4 text-sm sm:gap-6">
               <div className="text-center">
-                <p className="text-xs text-indigo-400">Base Balance</p>
+                <p className="text-xs text-indigo-400">Set Balance</p>
                 {editingBalance ? (
                   <div className="mt-1 flex items-center gap-1">
                     <input
@@ -171,12 +171,14 @@ export default function Dashboard() {
                   </p>
                 )}
               </div>
-              <div className="text-center">
-                <p className="text-xs text-indigo-400">+ Collections</p>
-                <p className="mt-0.5 font-semibold text-emerald-600">
-                  {formatCurrency(balance.collections)}
-                </p>
-              </div>
+              {balance.new_collections > 0 && (
+                <div className="text-center">
+                  <p className="text-xs text-indigo-400">+ New EMIs</p>
+                  <p className="mt-0.5 font-semibold text-emerald-600">
+                    {formatCurrency(balance.new_collections)}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
