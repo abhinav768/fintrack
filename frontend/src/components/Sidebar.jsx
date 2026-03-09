@@ -8,6 +8,7 @@ import {
   IndianRupee,
   Menu,
   X,
+  Settings,
 } from "lucide-react";
 
 const links = [
@@ -15,6 +16,7 @@ const links = [
   { to: "/loans", icon: HandCoins, label: "All Loans" },
   { to: "/add-loan", icon: PlusCircle, label: "New Loan" },
   { to: "/borrowers", icon: Users, label: "Borrowers" },
+  { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
 export default function Sidebar() {

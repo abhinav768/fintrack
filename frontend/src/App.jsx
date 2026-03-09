@@ -5,6 +5,7 @@ import Loans from "./components/Loans";
 import LoanDetail from "./components/LoanDetail";
 import AddLoan from "./components/AddLoan";
 import Borrowers from "./components/Borrowers";
+import Settings from "./components/Settings";
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
             <Route path="/loans/:id" element={<LoanDetail />} />
             <Route path="/add-loan" element={<AddLoan />} />
             <Route path="/borrowers" element={<Borrowers />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </div>
       </main>

@@ -24,3 +24,9 @@ class PaymentCreate(BaseModel):
 
 class BalanceUpdate(BaseModel):
     base_balance: float
+
+
+class NotificationSettings(BaseModel):
+    whatsapp_phone: str
+    whatsapp_apikey: str
+    notify_secret: str

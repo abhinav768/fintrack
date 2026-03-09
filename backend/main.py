@@ -1,11 +1,16 @@
 import os
-from fastapi import FastAPI, Depends, HTTPException
+import logging
+import httpx
+from urllib.parse import quote
+from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from dateutil.relativedelta import relativedelta
 from datetime import date
+
+logger = logging.getLogger("fintrack")
 
 from database import engine, get_db, Base
 import models
@@ -358,6 +363,99 @@ def delete_payment(payment_id: int, db: Session = Depends(get_db)):
 
     db.commit()
     return {"message": "Payment deleted"}
+
+
+# ── Notification Settings ─────────────────────────────────────────────────────
+
+@app.get("/api/settings/notifications")
+def get_notification_settings(db: Session = Depends(get_db)):
+    phone = _get_config(db, "whatsapp_phone", "")
+    apikey = _get_config(db, "whatsapp_apikey", "")
+    secret = _get_config(db, "notify_secret", "")
+    return {
+        "whatsapp_phone": phone,
+        "whatsapp_apikey": apikey,
+        "notify_secret": secret,
+        "configured": bool(phone and apikey and secret),
+    }
+
+
+@app.put("/api/settings/notifications")
+def update_notification_settings(
+    data: schemas.NotificationSettings, db: Session = Depends(get_db)
+):
+    _set_config(db, "whatsapp_phone", data.whatsapp_phone)
+    _set_config(db, "whatsapp_apikey", data.whatsapp_apikey)
+    _set_config(db, "notify_secret", data.notify_secret)
+    db.commit()
+    return {"message": "Settings saved"}
+
+
+@app.post("/api/notify/test")
+def test_notification(db: Session = Depends(get_db)):
+    phone = _get_config(db, "whatsapp_phone", "")
+    apikey = _get_config(db, "whatsapp_apikey", "")
+    if not phone or not apikey:
+        raise HTTPException(status_code=400, detail="WhatsApp not configured")
+    msg = "✅ FinTrack test notification - WhatsApp integration is working!"
+    _send_whatsapp(phone, apikey, msg)
+    return {"message": "Test notification sent"}
+
+
+@app.get("/api/notify/daily-reminders")
+def send_daily_reminders(token: str = Query(...), db: Session = Depends(get_db)):
+    secret = _get_config(db, "notify_secret", "")
+    if not secret or token != secret:
+        raise HTTPException(status_code=403, detail="Invalid token")
+
+    phone = _get_config(db, "whatsapp_phone", "")
+    apikey = _get_config(db, "whatsapp_apikey", "")
+    if not phone or not apikey:
+        raise HTTPException(status_code=400, detail="WhatsApp not configured")
+
+    today = date.today()
+    loans = db.query(models.Loan).filter(models.Loan.status == "active").all()
+
+    due_today = []
+    for loan in loans:
+        payments_map = {p.month_number: p for p in loan.payments}
+        for month_num in range(1, loan.total_months + 1):
+            due_date = loan.cycle_start_date + relativedelta(months=month_num - 1)
+            if due_date == today and month_num not in payments_map:
+                due_today.append({
+                    "name": loan.borrower.name,
+                    "amount": loan.monthly_emi,
+                    "month": month_num,
+                })
+
+    if not due_today:
+        return {"message": "No EMIs due today", "sent": False}
+
+    total = sum(e["amount"] for e in due_today)
+    lines = [f"📋 *FinTrack EMI Reminder*", f"📅 {today.strftime('%d %B %Y')}", ""]
+    lines.append(f"*{len(due_today)} EMI(s) to collect today:*")
+    lines.append("")
+    for e in due_today:
+        lines.append(f"• {e['name']} — ₹{e['amount']:,.0f} (Month {e['month']})")
+    lines.append("")
+    lines.append(f"💰 *Total: ₹{total:,.0f}*")
+
+    msg = "\n".join(lines)
+    _send_whatsapp(phone, apikey, msg)
+    return {"message": f"Sent reminder for {len(due_today)} EMIs", "sent": True}
+
+
+def _send_whatsapp(phone: str, apikey: str, message: str):
+    url = (
+        f"https://api.callmebot.com/whatsapp.php"
+        f"?phone={phone}&text={quote(message)}&apikey={apikey}"
+    )
+    try:
+        resp = httpx.get(url, timeout=30)
+        logger.info(f"CallMeBot response: {resp.status_code}")
+    except Exception as e:
+        logger.error(f"WhatsApp send failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to send WhatsApp: {e}")
 
 
 # ── Static frontend ───────────────────────────────────────────────────────────

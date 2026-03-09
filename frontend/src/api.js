@@ -23,3 +23,9 @@ export const updateBalance = (data) =>
   api.put("/balance", data).then((r) => r.data);
 export const getMonthlyCollection = () =>
   api.get("/monthly-collection").then((r) => r.data);
+export const getNotificationSettings = () =>
+  api.get("/settings/notifications").then((r) => r.data);
+export const updateNotificationSettings = (data) =>
+  api.put("/settings/notifications", data).then((r) => r.data);
+export const sendTestNotification = () =>
+  api.post("/notify/test").then((r) => r.data);
