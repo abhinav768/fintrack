@@ -1,6 +1,5 @@
 import os
 import logging
-import base64
 import httpx
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
@@ -365,23 +364,16 @@ def delete_payment(payment_id: int, db: Session = Depends(get_db)):
     return {"message": "Payment deleted"}
 
 
-# ── Notification Settings (Twilio SMS) ────────────────────────────────────────
+# ── Notification Settings (ntfy.sh push notifications) ────────────────────────
 
 @app.get("/api/settings/notifications")
 def get_notification_settings(db: Session = Depends(get_db)):
+    topic = _get_config(db, "ntfy_topic", "")
+    secret = _get_config(db, "notify_secret", "")
     return {
-        "twilio_sid": _get_config(db, "twilio_sid", ""),
-        "twilio_token": _get_config(db, "twilio_token", ""),
-        "twilio_from": _get_config(db, "twilio_from", ""),
-        "notify_phone": _get_config(db, "notify_phone", ""),
-        "notify_secret": _get_config(db, "notify_secret", ""),
-        "configured": bool(
-            _get_config(db, "twilio_sid", "")
-            and _get_config(db, "twilio_token", "")
-            and _get_config(db, "twilio_from", "")
-            and _get_config(db, "notify_phone", "")
-            and _get_config(db, "notify_secret", "")
-        ),
+        "ntfy_topic": topic,
+        "notify_secret": secret,
+        "configured": bool(topic and secret),
     }
 
 
@@ -389,10 +381,7 @@ def get_notification_settings(db: Session = Depends(get_db)):
 def update_notification_settings(
     data: schemas.NotificationSettings, db: Session = Depends(get_db)
 ):
-    _set_config(db, "twilio_sid", data.twilio_sid)
-    _set_config(db, "twilio_token", data.twilio_token)
-    _set_config(db, "twilio_from", data.twilio_from)
-    _set_config(db, "notify_phone", data.notify_phone)
+    _set_config(db, "ntfy_topic", data.ntfy_topic)
     _set_config(db, "notify_secret", data.notify_secret)
     db.commit()
     return {"message": "Settings saved"}
@@ -400,14 +389,11 @@ def update_notification_settings(
 
 @app.post("/api/notify/test")
 def test_notification(db: Session = Depends(get_db)):
-    sid = _get_config(db, "twilio_sid", "")
-    token = _get_config(db, "twilio_token", "")
-    from_num = _get_config(db, "twilio_from", "")
-    to_num = _get_config(db, "notify_phone", "")
-    if not all([sid, token, from_num, to_num]):
-        raise HTTPException(status_code=400, detail="Twilio SMS not fully configured")
-    _send_sms(sid, token, from_num, to_num, "FinTrack test - SMS notifications are working!")
-    return {"message": "Test SMS sent"}
+    topic = _get_config(db, "ntfy_topic", "")
+    if not topic:
+        raise HTTPException(status_code=400, detail="ntfy topic not configured")
+    _send_ntfy(topic, "FinTrack Test", "Push notifications are working!")
+    return {"message": "Test notification sent"}
 
 
 @app.get("/api/notify/daily-reminders")
@@ -416,12 +402,9 @@ def send_daily_reminders(token: str = Query(...), db: Session = Depends(get_db))
     if not secret or token != secret:
         raise HTTPException(status_code=403, detail="Invalid token")
 
-    sid = _get_config(db, "twilio_sid", "")
-    auth = _get_config(db, "twilio_token", "")
-    from_num = _get_config(db, "twilio_from", "")
-    to_num = _get_config(db, "notify_phone", "")
-    if not all([sid, auth, from_num, to_num]):
-        raise HTTPException(status_code=400, detail="Twilio SMS not fully configured")
+    topic = _get_config(db, "ntfy_topic", "")
+    if not topic:
+        raise HTTPException(status_code=400, detail="ntfy topic not configured")
 
     today = date.today()
     loans = db.query(models.Loan).filter(models.Loan.status == "active").all()
@@ -442,34 +425,33 @@ def send_daily_reminders(token: str = Query(...), db: Session = Depends(get_db))
         return {"message": "No EMIs due today", "sent": False}
 
     total = sum(e["amount"] for e in due_today)
-    lines = [f"FinTrack EMI Reminder", f"{today.strftime('%d %B %Y')}", ""]
-    lines.append(f"{len(due_today)} EMI(s) to collect today:")
+    lines = []
     for e in due_today:
         lines.append(f"- {e['name']}: Rs {e['amount']:,.0f} (Month {e['month']})")
     lines.append(f"\nTotal: Rs {total:,.0f}")
 
-    _send_sms(sid, auth, from_num, to_num, "\n".join(lines))
+    title = f"EMI Reminder - {today.strftime('%d %B %Y')}"
+    body = f"{len(due_today)} EMI(s) to collect today:\n" + "\n".join(lines)
+    _send_ntfy(topic, title, body)
     return {"message": f"Sent reminder for {len(due_today)} EMIs", "sent": True}
 
 
-def _send_sms(sid: str, token: str, from_num: str, to_num: str, body: str):
-    url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
-    auth_header = base64.b64encode(f"{sid}:{token}".encode()).decode()
+def _send_ntfy(topic: str, title: str, message: str):
+    url = f"https://ntfy.sh/{topic}"
     try:
         resp = httpx.post(
             url,
-            headers={"Authorization": f"Basic {auth_header}"},
-            data={"From": from_num, "To": to_num, "Body": body},
+            content=message.encode("utf-8"),
+            headers={"Title": title, "Priority": "high", "Tags": "moneybag"},
             timeout=30,
         )
         if resp.status_code >= 400:
-            detail = resp.json().get("message", resp.text)
-            logger.error(f"Twilio error: {detail}")
-            raise HTTPException(status_code=502, detail=f"Twilio: {detail}")
-        logger.info(f"SMS sent: {resp.json().get('sid', 'ok')}")
+            logger.error(f"ntfy error: {resp.text}")
+            raise HTTPException(status_code=502, detail=f"ntfy: {resp.text}")
+        logger.info(f"ntfy sent: {resp.status_code}")
     except httpx.HTTPError as e:
-        logger.error(f"SMS send failed: {e}")
-        raise HTTPException(status_code=502, detail=f"Failed to send SMS: {e}")
+        logger.error(f"ntfy send failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to send notification: {e}")
 
 
 # ── Static frontend ───────────────────────────────────────────────────────────

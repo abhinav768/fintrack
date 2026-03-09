@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from datetime import date
 from typing import Optional
 
+# YQ4XSQHKNSXSQMKRHFERLBS3
 
 class BorrowerCreate(BaseModel):
     name: str
@@ -27,8 +28,5 @@ class BalanceUpdate(BaseModel):
 
 
 class NotificationSettings(BaseModel):
-    twilio_sid: str
-    twilio_token: str
-    twilio_from: str
-    notify_phone: str
+    ntfy_topic: str
     notify_secret: str

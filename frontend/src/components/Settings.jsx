@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import {
   Bell,
-  Phone,
-  Key,
   Shield,
   Send,
   Save,
@@ -11,8 +9,7 @@ import {
   ExternalLink,
   Copy,
   Loader2,
-  MessageSquare,
-  Hash,
+  BellRing,
 } from "lucide-react";
 import {
   getNotificationSettings,
@@ -21,10 +18,7 @@ import {
 } from "../api";
 
 export default function Settings() {
-  const [sid, setSid] = useState("");
-  const [token, setToken] = useState("");
-  const [fromNum, setFromNum] = useState("");
-  const [phone, setPhone] = useState("");
+  const [topic, setTopic] = useState("");
   const [secret, setSecret] = useState("");
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -33,10 +27,7 @@ export default function Settings() {
 
   useEffect(() => {
     getNotificationSettings().then((d) => {
-      setSid(d.twilio_sid);
-      setToken(d.twilio_token);
-      setFromNum(d.twilio_from);
-      setPhone(d.notify_phone);
+      setTopic(d.ntfy_topic);
       setSecret(d.notify_secret);
       setConfigured(d.configured);
     });
@@ -49,21 +40,18 @@ export default function Settings() {
   }, [toast]);
 
   const handleSave = async () => {
-    if (!sid || !token || !fromNum || !phone || !secret) {
+    if (!topic || !secret) {
       setToast({ type: "error", msg: "All fields are required" });
       return;
     }
     setSaving(true);
     try {
       await updateNotificationSettings({
-        twilio_sid: sid,
-        twilio_token: token,
-        twilio_from: fromNum,
-        notify_phone: phone,
+        ntfy_topic: topic,
         notify_secret: secret,
       });
       setConfigured(true);
-      setToast({ type: "ok", msg: "Settings saved successfully!" });
+      setToast({ type: "ok", msg: "Settings saved!" });
     } catch {
       setToast({ type: "error", msg: "Failed to save settings" });
     } finally {
@@ -75,11 +63,11 @@ export default function Settings() {
     setTesting(true);
     try {
       await sendTestNotification();
-      setToast({ type: "ok", msg: "Test SMS sent! Check your phone." });
+      setToast({ type: "ok", msg: "Test notification sent! Check your phone." });
     } catch (e) {
       setToast({
         type: "error",
-        msg: e.response?.data?.detail || "Failed to send test SMS",
+        msg: e.response?.data?.detail || "Failed to send notification",
       });
     } finally {
       setTesting(false);
@@ -104,7 +92,7 @@ export default function Settings() {
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Settings</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Configure SMS notifications for EMI reminders via Twilio
+          Configure push notifications for EMI reminders via ntfy
         </p>
       </div>
 
@@ -128,30 +116,27 @@ export default function Settings() {
       {/* Setup guide */}
       <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 sm:p-5">
         <h3 className="flex items-center gap-2 font-semibold text-blue-800">
-          <Bell size={18} /> How to set up SMS notifications
+          <Bell size={18} /> How it works
         </h3>
         <ol className="mt-3 space-y-2 text-sm text-blue-700">
           <li>
-            <strong>Step 1:</strong> Sign up for a free{" "}
+            <strong>Step 1:</strong> Install the{" "}
             <a
-              href="https://www.twilio.com/try-twilio"
+              href="https://ntfy.sh"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 underline"
             >
-              Twilio account <ExternalLink size={12} />
+              ntfy app <ExternalLink size={12} />
             </a>{" "}
-            — you get ~$15 trial credit (enough for 300+ SMS).
+            on your phone and subscribe to your topic.
           </li>
           <li>
-            <strong>Step 2:</strong> Verify your phone number during signup.
-            From the Twilio Console, copy your <strong>Account SID</strong>,{" "}
-            <strong>Auth Token</strong>, and the{" "}
-            <strong>Twilio phone number</strong> assigned to you.
+            <strong>Step 2:</strong> Enter the same topic name below, generate a
+            secret token, and save.
           </li>
           <li>
-            <strong>Step 3:</strong> Fill in the fields below, generate a secret
-            token, and save. Then set up a free cron job at{" "}
+            <strong>Step 3:</strong> Set up a free cron job at{" "}
             <a
               href="https://cron-job.org"
               target="_blank"
@@ -160,7 +145,7 @@ export default function Settings() {
             >
               cron-job.org <ExternalLink size={12} />
             </a>{" "}
-            to call the reminder URL daily at 9:00 AM IST.
+            to trigger the reminder URL daily at 9:00 AM IST.
           </li>
         </ol>
       </div>
@@ -168,80 +153,24 @@ export default function Settings() {
       {/* Config form */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
         <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-800">
-          <MessageSquare size={18} className="text-emerald-600" /> Twilio SMS
+          <BellRing size={18} className="text-emerald-600" /> Notification
           Configuration
         </h3>
 
         <div className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Account SID
+              ntfy Topic Name
             </label>
-            <div className="flex items-center gap-2">
-              <Hash size={16} className="shrink-0 text-slate-400" />
-              <input
-                type="text"
-                placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                value={sid}
-                onChange={(e) => setSid(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Auth Token
-            </label>
-            <div className="flex items-center gap-2">
-              <Key size={16} className="shrink-0 text-slate-400" />
-              <input
-                type="password"
-                placeholder="Your Twilio Auth Token"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Twilio Phone Number (sender)
-            </label>
-            <div className="flex items-center gap-2">
-              <Phone size={16} className="shrink-0 text-slate-400" />
-              <input
-                type="text"
-                placeholder="+1XXXXXXXXXX"
-                value={fromNum}
-                onChange={(e) => setFromNum(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
+            <input
+              type="text"
+              placeholder="fintrack-abhinav-reminders"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
             <p className="mt-1 text-xs text-slate-400">
-              The phone number Twilio assigned to your account (found in Console
-              &gt; Phone Numbers).
-            </p>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Your Phone Number (receiver)
-            </label>
-            <div className="flex items-center gap-2">
-              <Phone size={16} className="shrink-0 text-slate-400" />
-              <input
-                type="text"
-                placeholder="+919876543210"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-            </div>
-            <p className="mt-1 text-xs text-slate-400">
-              Your number with country code. Must be verified in Twilio during
-              trial.
+              Must match the topic you subscribed to in the ntfy app.
             </p>
           </div>
 
@@ -250,19 +179,17 @@ export default function Settings() {
               Cron Secret Token
             </label>
             <div className="flex gap-2">
-              <div className="flex flex-1 items-center gap-2">
-                <Shield size={16} className="shrink-0 text-slate-400" />
-                <input
-                  type="text"
-                  value={secret}
-                  onChange={(e) => setSecret(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                />
-              </div>
+              <input
+                type="text"
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
               <button
                 onClick={generateSecret}
                 className="whitespace-nowrap rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
               >
+                <Shield size={14} className="mr-1 inline" />
                 Generate
               </button>
             </div>
@@ -294,7 +221,7 @@ export default function Settings() {
               ) : (
                 <Send size={16} />
               )}
-              Send Test SMS
+              Send Test
             </button>
           </div>
         </div>
