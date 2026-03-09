@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   Bell,
-  MessageCircle,
+  Phone,
   Key,
   Shield,
   Send,
@@ -11,6 +11,8 @@ import {
   ExternalLink,
   Copy,
   Loader2,
+  MessageSquare,
+  Hash,
 } from "lucide-react";
 import {
   getNotificationSettings,
@@ -19,8 +21,10 @@ import {
 } from "../api";
 
 export default function Settings() {
+  const [sid, setSid] = useState("");
+  const [token, setToken] = useState("");
+  const [fromNum, setFromNum] = useState("");
   const [phone, setPhone] = useState("");
-  const [apikey, setApikey] = useState("");
   const [secret, setSecret] = useState("");
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -29,8 +33,10 @@ export default function Settings() {
 
   useEffect(() => {
     getNotificationSettings().then((d) => {
-      setPhone(d.whatsapp_phone);
-      setApikey(d.whatsapp_apikey);
+      setSid(d.twilio_sid);
+      setToken(d.twilio_token);
+      setFromNum(d.twilio_from);
+      setPhone(d.notify_phone);
       setSecret(d.notify_secret);
       setConfigured(d.configured);
     });
@@ -43,15 +49,17 @@ export default function Settings() {
   }, [toast]);
 
   const handleSave = async () => {
-    if (!phone || !apikey || !secret) {
+    if (!sid || !token || !fromNum || !phone || !secret) {
       setToast({ type: "error", msg: "All fields are required" });
       return;
     }
     setSaving(true);
     try {
       await updateNotificationSettings({
-        whatsapp_phone: phone,
-        whatsapp_apikey: apikey,
+        twilio_sid: sid,
+        twilio_token: token,
+        twilio_from: fromNum,
+        notify_phone: phone,
         notify_secret: secret,
       });
       setConfigured(true);
@@ -67,11 +75,11 @@ export default function Settings() {
     setTesting(true);
     try {
       await sendTestNotification();
-      setToast({ type: "ok", msg: "Test notification sent! Check WhatsApp." });
+      setToast({ type: "ok", msg: "Test SMS sent! Check your phone." });
     } catch (e) {
       setToast({
         type: "error",
-        msg: e.response?.data?.detail || "Failed to send test notification",
+        msg: e.response?.data?.detail || "Failed to send test SMS",
       });
     } finally {
       setTesting(false);
@@ -96,7 +104,7 @@ export default function Settings() {
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Settings</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Configure WhatsApp notifications for EMI reminders
+          Configure SMS notifications for EMI reminders via Twilio
         </p>
       </div>
 
@@ -120,24 +128,30 @@ export default function Settings() {
       {/* Setup guide */}
       <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 sm:p-5">
         <h3 className="flex items-center gap-2 font-semibold text-blue-800">
-          <Bell size={18} /> How to set up WhatsApp notifications
+          <Bell size={18} /> How to set up SMS notifications
         </h3>
         <ol className="mt-3 space-y-2 text-sm text-blue-700">
           <li>
-            <strong>Step 1:</strong> Send this WhatsApp message to{" "}
-            <strong>+34 644 51 95 23</strong>:
-            <div className="mt-1 rounded bg-white/70 px-3 py-1.5 font-mono text-xs">
-              I allow callmebot to send me messages
-            </div>
+            <strong>Step 1:</strong> Sign up for a free{" "}
+            <a
+              href="https://www.twilio.com/try-twilio"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 underline"
+            >
+              Twilio account <ExternalLink size={12} />
+            </a>{" "}
+            — you get ~$15 trial credit (enough for 300+ SMS).
           </li>
           <li>
-            <strong>Step 2:</strong> You'll receive an API key in the reply.
-            Enter it below along with your phone number (with country code, e.g.
-            +91XXXXXXXXXX).
+            <strong>Step 2:</strong> Verify your phone number during signup.
+            From the Twilio Console, copy your <strong>Account SID</strong>,{" "}
+            <strong>Auth Token</strong>, and the{" "}
+            <strong>Twilio phone number</strong> assigned to you.
           </li>
           <li>
-            <strong>Step 3:</strong> Generate a secret token and save. Then set
-            up a free cron job at{" "}
+            <strong>Step 3:</strong> Fill in the fields below, generate a secret
+            token, and save. Then set up a free cron job at{" "}
             <a
               href="https://cron-job.org"
               target="_blank"
@@ -154,38 +168,81 @@ export default function Settings() {
       {/* Config form */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
         <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-800">
-          <MessageCircle size={18} className="text-emerald-600" /> WhatsApp
+          <MessageSquare size={18} className="text-emerald-600" /> Twilio SMS
           Configuration
         </h3>
 
         <div className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Phone Number (with country code)
+              Account SID
             </label>
-            <input
-              type="text"
-              placeholder="+919876543210"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
+            <div className="flex items-center gap-2">
+              <Hash size={16} className="shrink-0 text-slate-400" />
+              <input
+                type="text"
+                placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                value={sid}
+                onChange={(e) => setSid(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
           </div>
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              CallMeBot API Key
+              Auth Token
             </label>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <Key size={16} className="shrink-0 text-slate-400" />
+              <input
+                type="password"
+                placeholder="Your Twilio Auth Token"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Twilio Phone Number (sender)
+            </label>
+            <div className="flex items-center gap-2">
+              <Phone size={16} className="shrink-0 text-slate-400" />
               <input
                 type="text"
-                placeholder="123456"
-                value={apikey}
-                onChange={(e) => setApikey(e.target.value)}
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                placeholder="+1XXXXXXXXXX"
+                value={fromNum}
+                onChange={(e) => setFromNum(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
-              <Key size={18} className="mt-2.5 text-slate-400" />
             </div>
+            <p className="mt-1 text-xs text-slate-400">
+              The phone number Twilio assigned to your account (found in Console
+              &gt; Phone Numbers).
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Your Phone Number (receiver)
+            </label>
+            <div className="flex items-center gap-2">
+              <Phone size={16} className="shrink-0 text-slate-400" />
+              <input
+                type="text"
+                placeholder="+919876543210"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Your number with country code. Must be verified in Twilio during
+              trial.
+            </p>
           </div>
 
           <div>
@@ -193,22 +250,24 @@ export default function Settings() {
               Cron Secret Token
             </label>
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={secret}
-                onChange={(e) => setSecret(e.target.value)}
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
+              <div className="flex flex-1 items-center gap-2">
+                <Shield size={16} className="shrink-0 text-slate-400" />
+                <input
+                  type="text"
+                  value={secret}
+                  onChange={(e) => setSecret(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
               <button
                 onClick={generateSecret}
                 className="whitespace-nowrap rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
               >
-                <Shield size={14} className="mr-1 inline" />
                 Generate
               </button>
             </div>
             <p className="mt-1 text-xs text-slate-400">
-              This token secures the reminder endpoint from unauthorized access.
+              Secures the reminder endpoint from unauthorized access.
             </p>
           </div>
 
@@ -235,7 +294,7 @@ export default function Settings() {
               ) : (
                 <Send size={16} />
               )}
-              Send Test
+              Send Test SMS
             </button>
           </div>
         </div>
@@ -260,7 +319,7 @@ export default function Settings() {
             to trigger at <strong>9:00 AM IST</strong> (3:30 AM UTC).
           </p>
           <div className="flex items-center gap-2">
-            <code className="flex-1 overflow-x-auto rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">
+            <code className="flex-1 overflow-x-auto rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700 break-all">
               {cronUrl}
             </code>
             <button
@@ -268,12 +327,12 @@ export default function Settings() {
                 navigator.clipboard.writeText(cronUrl);
                 setToast({ type: "ok", msg: "URL copied!" });
               }}
-              className="rounded-lg border border-slate-300 p-2 text-slate-500 hover:bg-slate-50"
+              className="shrink-0 rounded-lg border border-slate-300 p-2 text-slate-500 hover:bg-slate-50"
             >
               <Copy size={16} />
             </button>
           </div>
-          <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
             <strong>cron-job.org schedule:</strong> Set execution time to{" "}
             <code className="rounded bg-amber-100 px-1">03:30</code> UTC (=
             9:00 AM IST). Choose &quot;Every day&quot; for frequency.

@@ -27,6 +27,8 @@ class BalanceUpdate(BaseModel):
 
 
 class NotificationSettings(BaseModel):
-    whatsapp_phone: str
-    whatsapp_apikey: str
+    twilio_sid: str
+    twilio_token: str
+    twilio_from: str
+    notify_phone: str
     notify_secret: str

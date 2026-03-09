@@ -1,7 +1,7 @@
 import os
 import logging
+import base64
 import httpx
-from urllib.parse import quote
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -365,18 +365,23 @@ def delete_payment(payment_id: int, db: Session = Depends(get_db)):
     return {"message": "Payment deleted"}
 
 
-# ── Notification Settings ─────────────────────────────────────────────────────
+# ── Notification Settings (Twilio SMS) ────────────────────────────────────────
 
 @app.get("/api/settings/notifications")
 def get_notification_settings(db: Session = Depends(get_db)):
-    phone = _get_config(db, "whatsapp_phone", "")
-    apikey = _get_config(db, "whatsapp_apikey", "")
-    secret = _get_config(db, "notify_secret", "")
     return {
-        "whatsapp_phone": phone,
-        "whatsapp_apikey": apikey,
-        "notify_secret": secret,
-        "configured": bool(phone and apikey and secret),
+        "twilio_sid": _get_config(db, "twilio_sid", ""),
+        "twilio_token": _get_config(db, "twilio_token", ""),
+        "twilio_from": _get_config(db, "twilio_from", ""),
+        "notify_phone": _get_config(db, "notify_phone", ""),
+        "notify_secret": _get_config(db, "notify_secret", ""),
+        "configured": bool(
+            _get_config(db, "twilio_sid", "")
+            and _get_config(db, "twilio_token", "")
+            and _get_config(db, "twilio_from", "")
+            and _get_config(db, "notify_phone", "")
+            and _get_config(db, "notify_secret", "")
+        ),
     }
 
 
@@ -384,8 +389,10 @@ def get_notification_settings(db: Session = Depends(get_db)):
 def update_notification_settings(
     data: schemas.NotificationSettings, db: Session = Depends(get_db)
 ):
-    _set_config(db, "whatsapp_phone", data.whatsapp_phone)
-    _set_config(db, "whatsapp_apikey", data.whatsapp_apikey)
+    _set_config(db, "twilio_sid", data.twilio_sid)
+    _set_config(db, "twilio_token", data.twilio_token)
+    _set_config(db, "twilio_from", data.twilio_from)
+    _set_config(db, "notify_phone", data.notify_phone)
     _set_config(db, "notify_secret", data.notify_secret)
     db.commit()
     return {"message": "Settings saved"}
@@ -393,13 +400,14 @@ def update_notification_settings(
 
 @app.post("/api/notify/test")
 def test_notification(db: Session = Depends(get_db)):
-    phone = _get_config(db, "whatsapp_phone", "")
-    apikey = _get_config(db, "whatsapp_apikey", "")
-    if not phone or not apikey:
-        raise HTTPException(status_code=400, detail="WhatsApp not configured")
-    msg = "✅ FinTrack test notification - WhatsApp integration is working!"
-    _send_whatsapp(phone, apikey, msg)
-    return {"message": "Test notification sent"}
+    sid = _get_config(db, "twilio_sid", "")
+    token = _get_config(db, "twilio_token", "")
+    from_num = _get_config(db, "twilio_from", "")
+    to_num = _get_config(db, "notify_phone", "")
+    if not all([sid, token, from_num, to_num]):
+        raise HTTPException(status_code=400, detail="Twilio SMS not fully configured")
+    _send_sms(sid, token, from_num, to_num, "FinTrack test - SMS notifications are working!")
+    return {"message": "Test SMS sent"}
 
 
 @app.get("/api/notify/daily-reminders")
@@ -408,10 +416,12 @@ def send_daily_reminders(token: str = Query(...), db: Session = Depends(get_db))
     if not secret or token != secret:
         raise HTTPException(status_code=403, detail="Invalid token")
 
-    phone = _get_config(db, "whatsapp_phone", "")
-    apikey = _get_config(db, "whatsapp_apikey", "")
-    if not phone or not apikey:
-        raise HTTPException(status_code=400, detail="WhatsApp not configured")
+    sid = _get_config(db, "twilio_sid", "")
+    auth = _get_config(db, "twilio_token", "")
+    from_num = _get_config(db, "twilio_from", "")
+    to_num = _get_config(db, "notify_phone", "")
+    if not all([sid, auth, from_num, to_num]):
+        raise HTTPException(status_code=400, detail="Twilio SMS not fully configured")
 
     today = date.today()
     loans = db.query(models.Loan).filter(models.Loan.status == "active").all()
@@ -432,30 +442,34 @@ def send_daily_reminders(token: str = Query(...), db: Session = Depends(get_db))
         return {"message": "No EMIs due today", "sent": False}
 
     total = sum(e["amount"] for e in due_today)
-    lines = [f"📋 *FinTrack EMI Reminder*", f"📅 {today.strftime('%d %B %Y')}", ""]
-    lines.append(f"*{len(due_today)} EMI(s) to collect today:*")
-    lines.append("")
+    lines = [f"FinTrack EMI Reminder", f"{today.strftime('%d %B %Y')}", ""]
+    lines.append(f"{len(due_today)} EMI(s) to collect today:")
     for e in due_today:
-        lines.append(f"• {e['name']} — ₹{e['amount']:,.0f} (Month {e['month']})")
-    lines.append("")
-    lines.append(f"💰 *Total: ₹{total:,.0f}*")
+        lines.append(f"- {e['name']}: Rs {e['amount']:,.0f} (Month {e['month']})")
+    lines.append(f"\nTotal: Rs {total:,.0f}")
 
-    msg = "\n".join(lines)
-    _send_whatsapp(phone, apikey, msg)
+    _send_sms(sid, auth, from_num, to_num, "\n".join(lines))
     return {"message": f"Sent reminder for {len(due_today)} EMIs", "sent": True}
 
 
-def _send_whatsapp(phone: str, apikey: str, message: str):
-    url = (
-        f"https://api.callmebot.com/whatsapp.php"
-        f"?phone={phone}&text={quote(message)}&apikey={apikey}"
-    )
+def _send_sms(sid: str, token: str, from_num: str, to_num: str, body: str):
+    url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+    auth_header = base64.b64encode(f"{sid}:{token}".encode()).decode()
     try:
-        resp = httpx.get(url, timeout=30)
-        logger.info(f"CallMeBot response: {resp.status_code}")
-    except Exception as e:
-        logger.error(f"WhatsApp send failed: {e}")
-        raise HTTPException(status_code=502, detail=f"Failed to send WhatsApp: {e}")
+        resp = httpx.post(
+            url,
+            headers={"Authorization": f"Basic {auth_header}"},
+            data={"From": from_num, "To": to_num, "Body": body},
+            timeout=30,
+        )
+        if resp.status_code >= 400:
+            detail = resp.json().get("message", resp.text)
+            logger.error(f"Twilio error: {detail}")
+            raise HTTPException(status_code=502, detail=f"Twilio: {detail}")
+        logger.info(f"SMS sent: {resp.json().get('sid', 'ok')}")
+    except httpx.HTTPError as e:
+        logger.error(f"SMS send failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to send SMS: {e}")
 
 
 # ── Static frontend ───────────────────────────────────────────────────────────
