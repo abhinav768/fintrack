@@ -50,3 +50,10 @@ class Payment(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     loan = relationship("Loan", back_populates="payments")
+
+
+class AppConfig(Base):
+    __tablename__ = "app_config"
+
+    key = Column(String, primary_key=True)
+    value = Column(String, nullable=False)

@@ -18,3 +18,8 @@ export const addPayment = (loanId, data) =>
   api.post(`/loans/${loanId}/payments`, data).then((r) => r.data);
 export const deletePayment = (id) =>
   api.delete(`/payments/${id}`).then((r) => r.data);
+export const getBalance = () => api.get("/balance").then((r) => r.data);
+export const updateBalance = (data) =>
+  api.put("/balance", data).then((r) => r.data);
+export const getMonthlyCollection = () =>
+  api.get("/monthly-collection").then((r) => r.data);

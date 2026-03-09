@@ -20,3 +20,7 @@ class PaymentCreate(BaseModel):
     month_number: int
     payment_date: date
     notes: Optional[str] = None
+
+
+class BalanceUpdate(BaseModel):
+    base_balance: float

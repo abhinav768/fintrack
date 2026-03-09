@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from dateutil.relativedelta import relativedelta
+from datetime import date
 
 from database import engine, get_db, Base
 import models
@@ -42,6 +43,86 @@ def get_dashboard(db: Session = Depends(get_db)):
         "active_loans": active_loans,
         "completed_loans": completed_loans,
         "total_loans": len(loans),
+    }
+
+
+# ── Account Balance ────────────────────────────────────────────────────────────
+
+INITIAL_BALANCE = 53600.0
+
+
+def _get_base_balance(db: Session) -> float:
+    row = db.query(models.AppConfig).filter(models.AppConfig.key == "base_balance").first()
+    if row:
+        return float(row.value)
+    return INITIAL_BALANCE
+
+
+@app.get("/api/balance")
+def get_balance(db: Session = Depends(get_db)):
+    base = _get_base_balance(db)
+    total_collected = (
+        db.query(func.coalesce(func.sum(models.Payment.amount), 0)).scalar()
+    )
+    return {
+        "base_balance": base,
+        "collections": float(total_collected),
+        "current_balance": base + float(total_collected),
+    }
+
+
+@app.put("/api/balance")
+def update_base_balance(data: schemas.BalanceUpdate, db: Session = Depends(get_db)):
+    row = db.query(models.AppConfig).filter(models.AppConfig.key == "base_balance").first()
+    if row:
+        row.value = str(data.base_balance)
+    else:
+        row = models.AppConfig(key="base_balance", value=str(data.base_balance))
+        db.add(row)
+    db.commit()
+    return {"base_balance": data.base_balance}
+
+
+# ── Monthly Collection ────────────────────────────────────────────────────────
+
+@app.get("/api/monthly-collection")
+def get_monthly_collection(db: Session = Depends(get_db)):
+    today = date.today()
+    current_year = today.year
+    current_month = today.month
+
+    loans = db.query(models.Loan).all()
+    emis_due = []
+    expected_total = 0.0
+    collected_total = 0.0
+
+    for loan in loans:
+        payments_map = {p.month_number: p for p in loan.payments}
+        for month_num in range(1, loan.total_months + 1):
+            due_date = loan.cycle_start_date + relativedelta(months=month_num - 1)
+            if due_date.year == current_year and due_date.month == current_month:
+                payment = payments_map.get(month_num)
+                paid = payment is not None
+                paid_amount = payment.amount if payment else 0
+                expected_total += loan.monthly_emi
+                if paid:
+                    collected_total += paid_amount
+                emis_due.append({
+                    "loan_id": loan.id,
+                    "borrower_name": loan.borrower.name,
+                    "month_number": month_num,
+                    "emi_amount": loan.monthly_emi,
+                    "paid": paid,
+                    "paid_amount": paid_amount,
+                    "due_date": str(due_date),
+                })
+
+    return {
+        "month": today.strftime("%B %Y"),
+        "expected_total": expected_total,
+        "collected_total": collected_total,
+        "pending_total": expected_total - collected_total,
+        "emis": emis_due,
     }
 
 
