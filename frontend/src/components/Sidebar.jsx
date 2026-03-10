@@ -40,11 +40,11 @@ export default function Sidebar() {
   const navContent = (
     <>
       <div className="flex items-center gap-3 px-6 py-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/20">
           <IndianRupee size={22} />
         </div>
         <div>
-          <h1 className="text-lg font-bold text-slate-800">FinTrack</h1>
+          <h1 className="text-lg font-bold text-white">FinTrack</h1>
           <p className="max-w-[140px] truncate text-xs text-slate-400" title={profile?.name}>
             {profile?.name || "Loan Manager"}
           </p>
@@ -58,10 +58,10 @@ export default function Sidebar() {
             to={to}
             end={to === "/"}
             className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
                 isActive
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  ? "bg-emerald-500/15 text-emerald-400 shadow-sm shadow-emerald-500/10"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
               }`
             }
           >
@@ -71,17 +71,17 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="space-y-1 border-t border-slate-100 px-3 py-3">
+      <div className="space-y-1 border-t border-white/10 px-3 py-3">
         <button
           onClick={handleSwitchProfile}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
         >
           <ArrowLeftRight size={18} />
           Switch Profile
         </button>
         <button
           onClick={logout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
         >
           <LogOut size={18} />
           Sign Out
@@ -93,18 +93,18 @@ export default function Sidebar() {
   return (
     <>
       {/* Mobile top bar */}
-      <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 md:hidden">
+      <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-slate-800 bg-slate-900 px-4 md:hidden">
         <button
           onClick={() => setOpen(true)}
-          className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100"
+          className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10"
         >
           <Menu size={22} />
         </button>
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 text-white">
             <IndianRupee size={16} />
           </div>
-          <span className="text-sm font-bold text-slate-800">FinTrack</span>
+          <span className="text-sm font-bold text-white">FinTrack</span>
         </div>
       </div>
 
@@ -112,13 +112,13 @@ export default function Sidebar() {
       {open && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           />
-          <aside className="relative flex h-full w-64 flex-col bg-white shadow-xl">
+          <aside className="relative flex h-full w-64 flex-col bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 shadow-xl">
             <button
               onClick={() => setOpen(false)}
-              className="absolute right-3 top-5 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+              className="absolute right-3 top-5 rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-slate-300"
             >
               <X size={18} />
             </button>
@@ -128,7 +128,7 @@ export default function Sidebar() {
       )}
 
       {/* Desktop sidebar */}
-      <aside className="hidden h-full w-64 flex-col border-r border-slate-200 bg-white md:flex">
+      <aside className="hidden h-full w-64 flex-col bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 md:flex">
         {navContent}
       </aside>
     </>
