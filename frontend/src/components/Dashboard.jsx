@@ -294,7 +294,14 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="mt-3 divide-y divide-slate-100">
-              {monthly.emis.map((emi) => (
+              {[...monthly.emis]
+                .sort((a, b) => a.due_date.localeCompare(b.due_date))
+                .map((emi) => {
+                  const d = new Date(emi.due_date + "T00:00:00");
+                  const day = d.getDate();
+                  const mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
+                  const dateLabel = `${day} ${mon}`;
+                  return (
                 <Link
                   key={`${emi.loan_id}-${emi.month_number}`}
                   to={`/loans/${emi.loan_id}`}
@@ -315,7 +322,8 @@ export default function Dashboard() {
                         {emi.borrower_name}
                       </p>
                       <p className="text-xs text-slate-400">
-                        Month {emi.month_number}
+                        <span className="font-medium text-slate-500">{dateLabel}</span>
+                        {" "}&middot; Month {emi.month_number}
                       </p>
                     </div>
                   </div>
@@ -334,7 +342,8 @@ export default function Dashboard() {
                     )}
                   </div>
                 </Link>
-              ))}
+                  );
+                })}
             </div>
           )}
         </div>
