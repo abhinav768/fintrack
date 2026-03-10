@@ -29,4 +29,5 @@ class BalanceUpdate(BaseModel):
 
 class NotificationSettings(BaseModel):
     ntfy_topic: str
+    ntfy_topic_2: Optional[str] = ""
     notify_secret: str

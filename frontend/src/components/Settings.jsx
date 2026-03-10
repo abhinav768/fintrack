@@ -19,6 +19,7 @@ import {
 
 export default function Settings() {
   const [topic, setTopic] = useState("");
+  const [topic2, setTopic2] = useState("");
   const [secret, setSecret] = useState("");
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -28,6 +29,7 @@ export default function Settings() {
   useEffect(() => {
     getNotificationSettings().then((d) => {
       setTopic(d.ntfy_topic);
+      setTopic2(d.ntfy_topic_2 || "");
       setSecret(d.notify_secret);
       setConfigured(d.configured);
     });
@@ -48,6 +50,7 @@ export default function Settings() {
     try {
       await updateNotificationSettings({
         ntfy_topic: topic,
+        ntfy_topic_2: topic2,
         notify_secret: secret,
       });
       setConfigured(true);
@@ -160,7 +163,7 @@ export default function Settings() {
         <div className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              ntfy Topic Name
+              ntfy Topic Name (Phone 1)
             </label>
             <input
               type="text"
@@ -171,6 +174,25 @@ export default function Settings() {
             />
             <p className="mt-1 text-xs text-slate-400">
               Must match the topic you subscribed to in the ntfy app.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              ntfy Topic Name (Phone 2)
+              <span className="ml-1 text-xs font-normal text-slate-400">
+                — optional
+              </span>
+            </label>
+            <input
+              type="text"
+              placeholder="fintrack-sabina-reminders"
+              value={topic2}
+              onChange={(e) => setTopic2(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              Optional second phone. Leave empty if not needed.
             </p>
           </div>
 

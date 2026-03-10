@@ -369,9 +369,11 @@ def delete_payment(payment_id: int, db: Session = Depends(get_db)):
 @app.get("/api/settings/notifications")
 def get_notification_settings(db: Session = Depends(get_db)):
     topic = _get_config(db, "ntfy_topic", "")
+    topic_2 = _get_config(db, "ntfy_topic_2", "")
     secret = _get_config(db, "notify_secret", "")
     return {
         "ntfy_topic": topic,
+        "ntfy_topic_2": topic_2,
         "notify_secret": secret,
         "configured": bool(topic and secret),
     }
@@ -382,6 +384,7 @@ def update_notification_settings(
     data: schemas.NotificationSettings, db: Session = Depends(get_db)
 ):
     _set_config(db, "ntfy_topic", data.ntfy_topic)
+    _set_config(db, "ntfy_topic_2", data.ntfy_topic_2 or "")
     _set_config(db, "notify_secret", data.notify_secret)
     db.commit()
     return {"message": "Settings saved"}
@@ -393,6 +396,9 @@ def test_notification(db: Session = Depends(get_db)):
     if not topic:
         raise HTTPException(status_code=400, detail="ntfy topic not configured")
     _send_ntfy(topic, "FinTrack Test", "Push notifications are working!")
+    topic_2 = _get_config(db, "ntfy_topic_2", "")
+    if topic_2:
+        _send_ntfy(topic_2, "FinTrack Test", "Push notifications are working!")
     return {"message": "Test notification sent"}
 
 
@@ -433,6 +439,11 @@ def send_daily_reminders(token: str = Query(...), db: Session = Depends(get_db))
     title = f"EMI Reminder - {today.strftime('%d %B %Y')}"
     body = f"{len(due_today)} EMI(s) to collect today:\n" + "\n".join(lines)
     _send_ntfy(topic, title, body)
+
+    topic_2 = _get_config(db, "ntfy_topic_2", "")
+    if topic_2:
+        _send_ntfy(topic_2, title, body)
+
     return {"message": f"Sent reminder for {len(due_today)} EMIs", "sent": True}
 
 
