@@ -35,7 +35,6 @@ class NotificationSettings(BaseModel):
 class UserSignup(BaseModel):
     username: str
     password: str
-    portfolio_name: str = "My Portfolio"
 
 
 class UserLogin(BaseModel):
@@ -43,5 +42,9 @@ class UserLogin(BaseModel):
     password: str
 
 
-class PortfolioUpdate(BaseModel):
-    portfolio_name: str
+class ProfileCreate(BaseModel):
+    name: str
+
+
+class ProfileUpdate(BaseModel):
+    name: str

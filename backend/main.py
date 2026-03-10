@@ -24,6 +24,43 @@ MONTHLY_INTEREST_RATE = 4  # 4% per month simple interest
 DEFAULT_MONTHS = 10
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _require_profile(
+    profile_id: int, user: models.User, db: Session
+) -> models.Profile:
+    """Validate that profile_id belongs to the authenticated user."""
+    profile = (
+        db.query(models.Profile)
+        .filter(models.Profile.id == profile_id, models.Profile.user_id == user.id)
+        .first()
+    )
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return profile
+
+
+def _get_config(db: Session, key: str, profile_id: int, default: str = "0") -> str:
+    row = (
+        db.query(models.AppConfig)
+        .filter(models.AppConfig.key == key, models.AppConfig.profile_id == profile_id)
+        .first()
+    )
+    return row.value if row else default
+
+
+def _set_config(db: Session, key: str, profile_id: int, value: str):
+    row = (
+        db.query(models.AppConfig)
+        .filter(models.AppConfig.key == key, models.AppConfig.profile_id == profile_id)
+        .first()
+    )
+    if row:
+        row.value = value
+    else:
+        db.add(models.AppConfig(key=key, profile_id=profile_id, value=value))
+
+
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 @app.post("/api/auth/signup")
@@ -34,19 +71,19 @@ def signup(data: schemas.UserSignup, db: Session = Depends(get_db)):
     user = models.User(
         username=data.username,
         password_hash=hash_password(data.password),
-        portfolio_name=data.portfolio_name,
     )
     db.add(user)
+    db.flush()
+    default_profile = models.Profile(
+        user_id=user.id, name=f"{data.username}'s Portfolio"
+    )
+    db.add(default_profile)
     db.commit()
     db.refresh(user)
     token = create_access_token(user.id)
     return {
         "token": token,
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "portfolio_name": user.portfolio_name,
-        },
+        "user": {"id": user.id, "username": user.username},
     }
 
 
@@ -58,53 +95,103 @@ def login(data: schemas.UserLogin, db: Session = Depends(get_db)):
     token = create_access_token(user.id)
     return {
         "token": token,
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "portfolio_name": user.portfolio_name,
-        },
+        "user": {"id": user.id, "username": user.username},
     }
 
 
 @app.get("/api/auth/me")
 def get_me(user: models.User = Depends(get_current_user)):
-    return {
-        "id": user.id,
-        "username": user.username,
-        "portfolio_name": user.portfolio_name,
-    }
+    return {"id": user.id, "username": user.username}
 
 
-@app.put("/api/auth/me")
-def update_profile(
-    data: schemas.PortfolioUpdate,
+# ── Profiles ──────────────────────────────────────────────────────────────────
+
+@app.get("/api/profiles")
+def list_profiles(
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    user.portfolio_name = data.portfolio_name
+    profiles = (
+        db.query(models.Profile)
+        .filter(models.Profile.user_id == user.id)
+        .order_by(models.Profile.id)
+        .all()
+    )
+    return [
+        {"id": p.id, "name": p.name, "created_at": str(p.created_at)}
+        for p in profiles
+    ]
+
+
+@app.post("/api/profiles")
+def create_profile(
+    data: schemas.ProfileCreate,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = models.Profile(user_id=user.id, name=data.name)
+    db.add(profile)
     db.commit()
-    return {
-        "id": user.id,
-        "username": user.username,
-        "portfolio_name": user.portfolio_name,
-    }
+    db.refresh(profile)
+    return {"id": profile.id, "name": profile.name}
+
+
+@app.put("/api/profiles/{profile_id}")
+def update_profile(
+    profile_id: int,
+    data: schemas.ProfileUpdate,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(profile_id, user, db)
+    profile.name = data.name
+    db.commit()
+    return {"id": profile.id, "name": profile.name}
+
+
+@app.delete("/api/profiles/{profile_id}")
+def delete_profile(
+    profile_id: int,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    profile = _require_profile(profile_id, user, db)
+    has_active = (
+        db.query(models.Loan)
+        .join(models.Borrower)
+        .filter(models.Borrower.profile_id == profile.id, models.Loan.status == "active")
+        .count()
+    )
+    if has_active:
+        raise HTTPException(status_code=400, detail="Cannot delete profile with active loans")
+    profile_count = (
+        db.query(models.Profile).filter(models.Profile.user_id == user.id).count()
+    )
+    if profile_count <= 1:
+        raise HTTPException(status_code=400, detail="Cannot delete your only profile")
+    db.delete(profile)
+    db.commit()
+    return {"message": "Profile deleted"}
 
 
 # ── Dashboard ──────────────────────────────────────────────────────────────────
 
 @app.get("/api/dashboard")
 def get_dashboard(
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    user_borrower_ids = (
+    profile = _require_profile(profile_id, user, db)
+
+    borrower_ids = (
         db.query(models.Borrower.id)
-        .filter(models.Borrower.user_id == user.id)
+        .filter(models.Borrower.profile_id == profile.id)
         .subquery()
     )
     loans = (
         db.query(models.Loan)
-        .filter(models.Loan.borrower_id.in_(user_borrower_ids))
+        .filter(models.Loan.borrower_id.in_(borrower_ids))
         .all()
     )
     total_principal = sum(l.principal for l in loans)
@@ -136,48 +223,30 @@ def get_dashboard(
 INITIAL_BALANCE = 53600.0
 
 
-def _get_config(db: Session, key: str, user_id: int, default: str = "0") -> str:
-    row = (
-        db.query(models.AppConfig)
-        .filter(models.AppConfig.key == key, models.AppConfig.user_id == user_id)
-        .first()
-    )
-    return row.value if row else default
-
-
-def _set_config(db: Session, key: str, user_id: int, value: str):
-    row = (
-        db.query(models.AppConfig)
-        .filter(models.AppConfig.key == key, models.AppConfig.user_id == user_id)
-        .first()
-    )
-    if row:
-        row.value = value
-    else:
-        db.add(models.AppConfig(key=key, user_id=user_id, value=value))
-
-
 @app.get("/api/balance")
 def get_balance(
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    base = float(_get_config(db, "base_balance", user.id, str(INITIAL_BALANCE)))
-    snapshot = float(_get_config(db, "collections_snapshot", user.id, "0"))
+    profile = _require_profile(profile_id, user, db)
 
-    user_borrower_ids = (
+    base = float(_get_config(db, "base_balance", profile.id, str(INITIAL_BALANCE)))
+    snapshot = float(_get_config(db, "collections_snapshot", profile.id, "0"))
+
+    borrower_ids = (
         db.query(models.Borrower.id)
-        .filter(models.Borrower.user_id == user.id)
+        .filter(models.Borrower.profile_id == profile.id)
         .subquery()
     )
-    user_loan_ids = (
+    loan_ids = (
         db.query(models.Loan.id)
-        .filter(models.Loan.borrower_id.in_(user_borrower_ids))
+        .filter(models.Loan.borrower_id.in_(borrower_ids))
         .subquery()
     )
     total_collected = float(
         db.query(func.coalesce(func.sum(models.Payment.amount), 0))
-        .filter(models.Payment.loan_id.in_(user_loan_ids))
+        .filter(models.Payment.loan_id.in_(loan_ids))
         .scalar()
     )
     new_collections = total_collected - snapshot
@@ -193,26 +262,29 @@ def get_balance(
 @app.put("/api/balance")
 def update_base_balance(
     data: schemas.BalanceUpdate,
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    user_borrower_ids = (
+    profile = _require_profile(profile_id, user, db)
+
+    borrower_ids = (
         db.query(models.Borrower.id)
-        .filter(models.Borrower.user_id == user.id)
+        .filter(models.Borrower.profile_id == profile.id)
         .subquery()
     )
-    user_loan_ids = (
+    loan_ids = (
         db.query(models.Loan.id)
-        .filter(models.Loan.borrower_id.in_(user_borrower_ids))
+        .filter(models.Loan.borrower_id.in_(borrower_ids))
         .subquery()
     )
     total_collected = float(
         db.query(func.coalesce(func.sum(models.Payment.amount), 0))
-        .filter(models.Payment.loan_id.in_(user_loan_ids))
+        .filter(models.Payment.loan_id.in_(loan_ids))
         .scalar()
     )
-    _set_config(db, "base_balance", user.id, str(data.base_balance))
-    _set_config(db, "collections_snapshot", user.id, str(total_collected))
+    _set_config(db, "base_balance", profile.id, str(data.base_balance))
+    _set_config(db, "collections_snapshot", profile.id, str(total_collected))
     db.commit()
     return {"base_balance": data.base_balance, "snapshot": total_collected}
 
@@ -221,21 +293,23 @@ def update_base_balance(
 
 @app.get("/api/monthly-collection")
 def get_monthly_collection(
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    profile = _require_profile(profile_id, user, db)
     today = date.today()
     current_year = today.year
     current_month = today.month
 
-    user_borrower_ids = (
+    borrower_ids = (
         db.query(models.Borrower.id)
-        .filter(models.Borrower.user_id == user.id)
+        .filter(models.Borrower.profile_id == profile.id)
         .subquery()
     )
     loans = (
         db.query(models.Loan)
-        .filter(models.Loan.borrower_id.in_(user_borrower_ids))
+        .filter(models.Loan.borrower_id.in_(borrower_ids))
         .all()
     )
     emis_due = []
@@ -276,12 +350,14 @@ def get_monthly_collection(
 
 @app.get("/api/borrowers")
 def list_borrowers(
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    profile = _require_profile(profile_id, user, db)
     borrowers = (
         db.query(models.Borrower)
-        .filter(models.Borrower.user_id == user.id)
+        .filter(models.Borrower.profile_id == profile.id)
         .all()
     )
     result = []
@@ -300,11 +376,13 @@ def list_borrowers(
 @app.post("/api/borrowers")
 def create_borrower(
     borrower: schemas.BorrowerCreate,
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    profile = _require_profile(profile_id, user, db)
     db_borrower = models.Borrower(
-        name=borrower.name, phone=borrower.phone, user_id=user.id
+        name=borrower.name, phone=borrower.phone, profile_id=profile.id
     )
     db.add(db_borrower)
     db.commit()
@@ -315,12 +393,14 @@ def create_borrower(
 @app.delete("/api/borrowers/{borrower_id}")
 def delete_borrower(
     borrower_id: int,
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    profile = _require_profile(profile_id, user, db)
     borrower = (
         db.query(models.Borrower)
-        .filter(models.Borrower.id == borrower_id, models.Borrower.user_id == user.id)
+        .filter(models.Borrower.id == borrower_id, models.Borrower.profile_id == profile.id)
         .first()
     )
     if not borrower:
@@ -334,12 +414,12 @@ def delete_borrower(
 
 # ── Loans ──────────────────────────────────────────────────────────────────────
 
-def _get_user_loan(db: Session, loan_id: int, user: models.User) -> models.Loan:
-    """Fetch a loan ensuring it belongs to the current user."""
+def _get_profile_loan(db: Session, loan_id: int, profile: models.Profile) -> models.Loan:
+    """Fetch a loan ensuring it belongs to the given profile."""
     loan = (
         db.query(models.Loan)
         .join(models.Borrower)
-        .filter(models.Loan.id == loan_id, models.Borrower.user_id == user.id)
+        .filter(models.Loan.id == loan_id, models.Borrower.profile_id == profile.id)
         .first()
     )
     if not loan:
@@ -349,17 +429,19 @@ def _get_user_loan(db: Session, loan_id: int, user: models.User) -> models.Loan:
 
 @app.get("/api/loans")
 def list_loans(
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    user_borrower_ids = (
+    profile = _require_profile(profile_id, user, db)
+    borrower_ids = (
         db.query(models.Borrower.id)
-        .filter(models.Borrower.user_id == user.id)
+        .filter(models.Borrower.profile_id == profile.id)
         .subquery()
     )
     loans = (
         db.query(models.Loan)
-        .filter(models.Loan.borrower_id.in_(user_borrower_ids))
+        .filter(models.Loan.borrower_id.in_(borrower_ids))
         .all()
     )
     result = []
@@ -386,12 +468,14 @@ def list_loans(
 @app.post("/api/loans")
 def create_loan(
     loan: schemas.LoanCreate,
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    profile = _require_profile(profile_id, user, db)
     borrower = (
         db.query(models.Borrower)
-        .filter(models.Borrower.id == loan.borrower_id, models.Borrower.user_id == user.id)
+        .filter(models.Borrower.id == loan.borrower_id, models.Borrower.profile_id == profile.id)
         .first()
     )
     if not borrower:
@@ -429,10 +513,12 @@ def create_loan(
 @app.get("/api/loans/{loan_id}")
 def get_loan(
     loan_id: int,
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    loan = _get_user_loan(db, loan_id, user)
+    profile = _require_profile(profile_id, user, db)
+    loan = _get_profile_loan(db, loan_id, profile)
 
     payments_map = {p.month_number: p for p in loan.payments}
 
@@ -474,10 +560,12 @@ def get_loan(
 @app.delete("/api/loans/{loan_id}")
 def delete_loan(
     loan_id: int,
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    loan = _get_user_loan(db, loan_id, user)
+    profile = _require_profile(profile_id, user, db)
+    loan = _get_profile_loan(db, loan_id, profile)
     db.delete(loan)
     db.commit()
     return {"message": "Loan deleted"}
@@ -489,10 +577,12 @@ def delete_loan(
 def add_payment(
     loan_id: int,
     payment: schemas.PaymentCreate,
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    loan = _get_user_loan(db, loan_id, user)
+    profile = _require_profile(profile_id, user, db)
+    loan = _get_profile_loan(db, loan_id, profile)
 
     existing = (
         db.query(models.Payment)
@@ -535,17 +625,18 @@ def add_payment(
 @app.delete("/api/payments/{payment_id}")
 def delete_payment(
     payment_id: int,
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    profile = _require_profile(profile_id, user, db)
     payment = (
         db.query(models.Payment).filter(models.Payment.id == payment_id).first()
     )
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
-    # Verify the payment's loan belongs to this user
-    _get_user_loan(db, payment.loan_id, user)
+    _get_profile_loan(db, payment.loan_id, profile)
 
     loan = db.query(models.Loan).filter(models.Loan.id == payment.loan_id).first()
     db.delete(payment)
@@ -564,12 +655,14 @@ def delete_payment(
 
 @app.get("/api/settings/notifications")
 def get_notification_settings(
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    topic = _get_config(db, "ntfy_topic", user.id, "")
-    topic_2 = _get_config(db, "ntfy_topic_2", user.id, "")
-    secret = _get_config(db, "notify_secret", user.id, "")
+    profile = _require_profile(profile_id, user, db)
+    topic = _get_config(db, "ntfy_topic", profile.id, "")
+    topic_2 = _get_config(db, "ntfy_topic_2", profile.id, "")
+    secret = _get_config(db, "notify_secret", profile.id, "")
     return {
         "ntfy_topic": topic,
         "ntfy_topic_2": topic_2,
@@ -581,26 +674,30 @@ def get_notification_settings(
 @app.put("/api/settings/notifications")
 def update_notification_settings(
     data: schemas.NotificationSettings,
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    _set_config(db, "ntfy_topic", user.id, data.ntfy_topic)
-    _set_config(db, "ntfy_topic_2", user.id, data.ntfy_topic_2 or "")
-    _set_config(db, "notify_secret", user.id, data.notify_secret)
+    profile = _require_profile(profile_id, user, db)
+    _set_config(db, "ntfy_topic", profile.id, data.ntfy_topic)
+    _set_config(db, "ntfy_topic_2", profile.id, data.ntfy_topic_2 or "")
+    _set_config(db, "notify_secret", profile.id, data.notify_secret)
     db.commit()
     return {"message": "Settings saved"}
 
 
 @app.post("/api/notify/test")
 def test_notification(
+    profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    topic = _get_config(db, "ntfy_topic", user.id, "")
+    profile = _require_profile(profile_id, user, db)
+    topic = _get_config(db, "ntfy_topic", profile.id, "")
     if not topic:
         raise HTTPException(status_code=400, detail="ntfy topic not configured")
     _send_ntfy(topic, "FinTrack Test", "Push notifications are working!")
-    topic_2 = _get_config(db, "ntfy_topic_2", user.id, "")
+    topic_2 = _get_config(db, "ntfy_topic_2", profile.id, "")
     if topic_2:
         _send_ntfy(topic_2, "FinTrack Test", "Push notifications are working!")
     return {"message": "Test notification sent"}
@@ -608,29 +705,29 @@ def test_notification(
 
 @app.get("/api/notify/daily-reminders")
 def send_daily_reminders(token: str = Query(...), db: Session = Depends(get_db)):
-    """Cron endpoint: iterates all users, sends reminders for each user's config."""
-    users = db.query(models.User).all()
+    """Cron endpoint: iterates all profiles, sends reminders where token matches."""
+    profiles = db.query(models.Profile).all()
 
     total_sent = 0
-    for u in users:
-        secret = _get_config(db, "notify_secret", u.id, "")
+    for p in profiles:
+        secret = _get_config(db, "notify_secret", p.id, "")
         if not secret or token != secret:
             continue
 
-        topic = _get_config(db, "ntfy_topic", u.id, "")
+        topic = _get_config(db, "ntfy_topic", p.id, "")
         if not topic:
             continue
 
         today = date.today()
-        user_borrower_ids = (
+        borrower_ids = (
             db.query(models.Borrower.id)
-            .filter(models.Borrower.user_id == u.id)
+            .filter(models.Borrower.profile_id == p.id)
             .subquery()
         )
         loans = (
             db.query(models.Loan)
             .filter(
-                models.Loan.borrower_id.in_(user_borrower_ids),
+                models.Loan.borrower_id.in_(borrower_ids),
                 models.Loan.status == "active",
             )
             .all()
@@ -638,7 +735,7 @@ def send_daily_reminders(token: str = Query(...), db: Session = Depends(get_db))
 
         due_today = []
         for loan in loans:
-            payments_map = {p.month_number: p for p in loan.payments}
+            payments_map = {pm.month_number: pm for pm in loan.payments}
             for month_num in range(1, loan.total_months + 1):
                 due_date = loan.cycle_start_date + relativedelta(months=month_num - 1)
                 if due_date == today and month_num not in payments_map:
@@ -661,7 +758,7 @@ def send_daily_reminders(token: str = Query(...), db: Session = Depends(get_db))
         body = f"{len(due_today)} EMI(s) to collect today:\n" + "\n".join(lines)
         _send_ntfy(topic, title, body)
 
-        topic_2 = _get_config(db, "ntfy_topic_2", u.id, "")
+        topic_2 = _get_config(db, "ntfy_topic_2", p.id, "")
         if topic_2:
             _send_ntfy(topic_2, title, body)
 

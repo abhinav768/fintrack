@@ -20,8 +20,8 @@ import {
 import { useAuth } from "../AuthContext";
 
 export default function Settings() {
-  const { user, updateProfile } = useAuth();
-  const [portfolioName, setPortfolioName] = useState(user?.portfolio_name || "");
+  const { user, profile, updateProfile } = useAuth();
+  const [profileName, setProfileName] = useState(profile?.name || "");
   const [savingProfile, setSavingProfile] = useState(false);
 
   const [topic, setTopic] = useState("");
@@ -48,16 +48,16 @@ export default function Settings() {
   }, [toast]);
 
   const handleSaveProfile = async () => {
-    if (!portfolioName.trim()) {
-      setToast({ type: "error", msg: "Portfolio name cannot be empty" });
+    if (!profileName.trim()) {
+      setToast({ type: "error", msg: "Profile name cannot be empty" });
       return;
     }
     setSavingProfile(true);
     try {
-      await updateProfile(portfolioName.trim());
-      setToast({ type: "ok", msg: "Portfolio name updated!" });
+      await updateProfile(profile.id, profileName.trim());
+      setToast({ type: "ok", msg: "Profile name updated!" });
     } catch {
-      setToast({ type: "error", msg: "Failed to update portfolio name" });
+      setToast({ type: "error", msg: "Failed to update profile name" });
     } finally {
       setSavingProfile(false);
     }
@@ -117,7 +117,7 @@ export default function Settings() {
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Settings</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Manage your portfolio and notification settings
+          Manage your profile and notification settings
         </p>
       </div>
 
@@ -138,21 +138,21 @@ export default function Settings() {
         </div>
       )}
 
-      {/* Portfolio section */}
+      {/* Profile section */}
       <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
         <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-800">
-          <User size={18} className="text-emerald-600" /> Portfolio
+          <User size={18} className="text-emerald-600" /> Profile
         </h3>
         <div className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Portfolio Name
+              Profile Name
             </label>
             <div className="flex gap-2">
               <input
                 type="text"
-                value={portfolioName}
-                onChange={(e) => setPortfolioName(e.target.value)}
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
                 className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
               <button

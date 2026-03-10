@@ -9,10 +9,11 @@ import Borrowers from "./components/Borrowers";
 import Settings from "./components/Settings";
 import Login from "./components/Login";
 import Signup from "./components/Signup";
+import ProfilePicker from "./components/ProfilePicker";
 import { Loader2 } from "lucide-react";
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
 
   if (loading) {
     return (
@@ -32,6 +33,15 @@ function AppRoutes() {
     );
   }
 
+  if (!profile) {
+    return (
+      <Routes>
+        <Route path="/profiles" element={<ProfilePicker />} />
+        <Route path="*" element={<Navigate to="/profiles" replace />} />
+      </Routes>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <Sidebar />
@@ -44,6 +54,7 @@ function AppRoutes() {
             <Route path="/add-loan" element={<AddLoan />} />
             <Route path="/borrowers" element={<Borrowers />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/profiles" element={<ProfilePicker />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

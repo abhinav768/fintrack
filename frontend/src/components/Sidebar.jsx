@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
@@ -10,6 +10,7 @@ import {
   X,
   Settings,
   LogOut,
+  ArrowLeftRight,
 } from "lucide-react";
 import { useAuth } from "../AuthContext";
 
@@ -24,11 +25,17 @@ const links = [
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const { profile, logout, clearProfile } = useAuth();
 
   useEffect(() => {
     setOpen(false);
   }, [location.pathname]);
+
+  const handleSwitchProfile = () => {
+    clearProfile();
+    navigate("/profiles");
+  };
 
   const navContent = (
     <>
@@ -38,8 +45,8 @@ export default function Sidebar() {
         </div>
         <div>
           <h1 className="text-lg font-bold text-slate-800">FinTrack</h1>
-          <p className="max-w-[140px] truncate text-xs text-slate-400" title={user?.portfolio_name}>
-            {user?.portfolio_name || "Loan Manager"}
+          <p className="max-w-[140px] truncate text-xs text-slate-400" title={profile?.name}>
+            {profile?.name || "Loan Manager"}
           </p>
         </div>
       </div>
@@ -64,7 +71,14 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-slate-100 px-3 py-3">
+      <div className="space-y-1 border-t border-slate-100 px-3 py-3">
+        <button
+          onClick={handleSwitchProfile}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
+        >
+          <ArrowLeftRight size={18} />
+          Switch Profile
+        </button>
         <button
           onClick={logout}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600"

@@ -11,22 +11,33 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
-    portfolio_name = Column(String, nullable=False, default="My Portfolio")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    borrowers = relationship("Borrower", back_populates="user", cascade="all, delete-orphan")
+    profiles = relationship("Profile", back_populates="user", cascade="all, delete-orphan")
+
+
+class Profile(Base):
+    __tablename__ = "profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False, default="My Portfolio")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="profiles")
+    borrowers = relationship("Borrower", back_populates="profile", cascade="all, delete-orphan")
 
 
 class Borrower(Base):
     __tablename__ = "borrowers"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=False)
     name = Column(String, nullable=False)
     phone = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    user = relationship("User", back_populates="borrowers")
+    profile = relationship("Profile", back_populates="borrowers")
     loans = relationship("Loan", back_populates="borrower", cascade="all, delete-orphan")
 
 
@@ -70,5 +81,5 @@ class AppConfig(Base):
     __tablename__ = "app_config"
 
     key = Column(String, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), primary_key=True, default=0)
+    profile_id = Column(Integer, ForeignKey("profiles.id"), primary_key=True, default=0)
     value = Column(String, nullable=False)

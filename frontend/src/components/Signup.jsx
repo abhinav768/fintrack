@@ -6,7 +6,6 @@ import { useAuth } from "../AuthContext";
 export default function Signup() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [portfolioName, setPortfolioName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { signup } = useAuth();
@@ -25,8 +24,8 @@ export default function Signup() {
     setError("");
     setLoading(true);
     try {
-      await signup(username, password, portfolioName || `${username}'s Portfolio`);
-      navigate("/");
+      await signup(username, password);
+      navigate("/profiles");
     } catch (err) {
       setError(err.response?.data?.detail || "Signup failed");
     } finally {
@@ -42,7 +41,7 @@ export default function Signup() {
             <IndianRupee size={28} />
           </div>
           <h1 className="text-2xl font-bold text-slate-800">FinTrack</h1>
-          <p className="mt-1 text-sm text-slate-500">Create your portfolio</p>
+          <p className="mt-1 text-sm text-slate-500">Create your account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -78,25 +77,6 @@ export default function Signup() {
                 autoComplete="new-password"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Portfolio Name
-                <span className="ml-1 text-xs font-normal text-slate-400">
-                  — optional
-                </span>
-              </label>
-              <input
-                type="text"
-                value={portfolioName}
-                onChange={(e) => setPortfolioName(e.target.value)}
-                placeholder="e.g. Arvind's Portfolio"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-              <p className="mt-1 text-xs text-slate-400">
-                You can change this later in Settings.
-              </p>
             </div>
 
             <button

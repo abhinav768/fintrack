@@ -7,6 +7,17 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  const profileId = localStorage.getItem("profile_id");
+  if (profileId) {
+    const skipProfileRoutes = ["/auth/", "/profiles"];
+    const url = config.url || "";
+    const needsProfile = !skipProfileRoutes.some((r) => url.startsWith(r));
+    if (needsProfile) {
+      config.params = { ...config.params, profile_id: profileId };
+    }
+  }
+
   return config;
 });
 
@@ -17,6 +28,7 @@ api.interceptors.response.use(
       const path = window.location.pathname;
       if (path !== "/login" && path !== "/signup") {
         localStorage.removeItem("token");
+        localStorage.removeItem("profile_id");
         window.location.href = "/login";
       }
     }
@@ -28,7 +40,13 @@ export const authApi = {
   signup: (data) => api.post("/auth/signup", data).then((r) => r.data),
   login: (data) => api.post("/auth/login", data).then((r) => r.data),
   getMe: () => api.get("/auth/me").then((r) => r.data),
-  updateMe: (data) => api.put("/auth/me", data).then((r) => r.data),
+};
+
+export const profileApi = {
+  list: () => api.get("/profiles").then((r) => r.data),
+  create: (data) => api.post("/profiles", data).then((r) => r.data),
+  update: (id, data) => api.put(`/profiles/${id}`, data).then((r) => r.data),
+  delete: (id) => api.delete(`/profiles/${id}`).then((r) => r.data),
 };
 
 export const getDashboard = () => api.get("/dashboard").then((r) => r.data);
