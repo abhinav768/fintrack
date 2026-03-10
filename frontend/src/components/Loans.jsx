@@ -161,7 +161,7 @@ export default function Loans() {
                     </span>
                     <button
                       onClick={(e) => handleDelete(e, loan.id)}
-                      className="hidden rounded-lg p-2 text-slate-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 sm:block"
+                      className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
                     >
                       <Trash2 size={15} />
                     </button>
