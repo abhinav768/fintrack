@@ -13,6 +13,7 @@ import {
   X,
   Check,
 } from "lucide-react";
+import { useAuth } from "../AuthContext";
 import {
   getDashboard,
   getLoans,
@@ -29,6 +30,7 @@ const formatCurrency = (amount) =>
   }).format(amount);
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [loans, setLoans] = useState([]);
   const [balance, setBalance] = useState(null);
@@ -108,7 +110,9 @@ export default function Dashboard() {
   return (
     <div>
       <div className="mb-8">
-        <h2 className="text-2xl font-bold text-slate-800">Dashboard</h2>
+        <h2 className="text-2xl font-bold text-slate-800">
+          {user?.portfolio_name ? `${user.portfolio_name} — Dashboard` : "Dashboard"}
+        </h2>
         <p className="mt-1 text-sm text-slate-500">
           Overview of your lending portfolio
         </p>
