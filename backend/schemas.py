@@ -2,7 +2,6 @@ from pydantic import BaseModel
 from datetime import date
 from typing import Optional
 
-# YQ4XSQHKNSXSQMKRHFERLBS3
 
 class BorrowerCreate(BaseModel):
     name: str
@@ -31,3 +30,18 @@ class NotificationSettings(BaseModel):
     ntfy_topic: str
     ntfy_topic_2: Optional[str] = ""
     notify_secret: str
+
+
+class UserSignup(BaseModel):
+    username: str
+    password: str
+    portfolio_name: str = "My Portfolio"
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class PortfolioUpdate(BaseModel):
+    portfolio_name: str

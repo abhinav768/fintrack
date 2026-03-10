@@ -1,4 +1,5 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./AuthContext";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./components/Dashboard";
 import Loans from "./components/Loans";
@@ -6,8 +7,31 @@ import LoanDetail from "./components/LoanDetail";
 import AddLoan from "./components/AddLoan";
 import Borrowers from "./components/Borrowers";
 import Settings from "./components/Settings";
+import Login from "./components/Login";
+import Signup from "./components/Signup";
+import { Loader2 } from "lucide-react";
 
-export default function App() {
+function AppRoutes() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-50">
+        <Loader2 size={32} className="animate-spin text-emerald-600" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <Sidebar />
@@ -20,9 +44,18 @@ export default function App() {
             <Route path="/add-loan" element={<AddLoan />} />
             <Route path="/borrowers" element={<Borrowers />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   );
 }

@@ -9,7 +9,9 @@ import {
   Menu,
   X,
   Settings,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "../AuthContext";
 
 const links = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -22,6 +24,7 @@ const links = [
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     setOpen(false);
@@ -35,7 +38,9 @@ export default function Sidebar() {
         </div>
         <div>
           <h1 className="text-lg font-bold text-slate-800">FinTrack</h1>
-          <p className="text-xs text-slate-400">Loan Manager</p>
+          <p className="max-w-[140px] truncate text-xs text-slate-400" title={user?.portfolio_name}>
+            {user?.portfolio_name || "Loan Manager"}
+          </p>
         </div>
       </div>
 
@@ -59,10 +64,14 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-slate-100 px-6 py-4">
-        <p className="text-xs text-slate-400">
-          4% / month &middot; flexible tenure
-        </p>
+      <div className="border-t border-slate-100 px-3 py-3">
+        <button
+          onClick={logout}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600"
+        >
+          <LogOut size={18} />
+          Sign Out
+        </button>
       </div>
     </>
   );
