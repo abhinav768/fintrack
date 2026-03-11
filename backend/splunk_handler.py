@@ -30,7 +30,10 @@ class SplunkHECHandler(logging.Handler):
     def __init__(self, hec_url: str, hec_token: str):
         super().__init__()
         self.hec_url = hec_url
-        self.headers = {"Authorization": f"Splunk {hec_token}"}
+        self.headers = {
+            "Authorization": f"Splunk {hec_token}",
+            "ngrok-skip-browser-warning": "true",
+        }
         self._queue: Queue = Queue(maxsize=5000)
         self._shutdown = threading.Event()
         self._worker = threading.Thread(target=self._run, daemon=True)

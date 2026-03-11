@@ -1,0 +1,200 @@
+<dashboard>
+  <label>FinTrack Real-time Monitoring</label>
+  <description>Live application monitoring for FinTrack</description>
+
+  <row>
+    <panel>
+      <title>Total Requests (1h)</title>
+      <single>
+        <search>
+          <query>index="fintrack" event_type="api_request" earliest=-1h | stats count</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+      </single>
+    </panel>
+    <panel>
+      <title>Avg Response Time (ms)</title>
+      <single>
+        <search>
+          <query>index="fintrack" event_type="api_request" earliest=-1h | stats avg(duration_ms) as avg_ms | eval avg_ms=round(avg_ms,1)</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+      </single>
+    </panel>
+    <panel>
+      <title>Errors (1h)</title>
+      <single>
+        <search>
+          <query>index="fintrack" event_type="api_request" earliest=-1h status_code&gt;=400 | stats count</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+      </single>
+    </panel>
+    <panel>
+      <title>Active Endpoints</title>
+      <single>
+        <search>
+          <query>index="fintrack" event_type="api_request" earliest=-1h | stats dc(path) as endpoints</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Transactions Per Minute (TPM)</title>
+      <chart>
+        <search>
+          <query>index="fintrack" event_type="api_request" | timechart span=1m count as TPM</query>
+          <earliest>-60m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">area</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Transactions Per Second (TPS)</title>
+      <chart>
+        <search>
+          <query>index="fintrack" event_type="api_request" | timechart span=1s count as TPS</query>
+          <earliest>-15m</earliest>
+          <latest>now</latest>
+          <refresh>10s</refresh>
+        </search>
+        <option name="charting.chart">line</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Response Time Over Time (ms)</title>
+      <chart>
+        <search>
+          <query>index="fintrack" event_type="api_request" | timechart span=1m avg(duration_ms) as AvgMs max(duration_ms) as MaxMs</query>
+          <earliest>-60m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">line</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Top Endpoints by Traffic</title>
+      <chart>
+        <search>
+          <query>index="fintrack" event_type="api_request" earliest=-1h | stats count by path | sort -count | head 10</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">bar</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Avg Response Time by Endpoint</title>
+      <chart>
+        <search>
+          <query>index="fintrack" event_type="api_request" earliest=-1h | stats avg(duration_ms) as AvgMs count by path | sort -AvgMs | head 10</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">bar</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Status Code Distribution</title>
+      <chart>
+        <search>
+          <query>index="fintrack" event_type="api_request" earliest=-1h | stats count by status_code | sort status_code</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">pie</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Recent Errors (status 400+)</title>
+      <table>
+        <search>
+          <query>index="fintrack" event_type="api_request" status_code&gt;=400 | table _time method path status_code duration_ms | sort -_time | head 20</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Authentication Activity</title>
+      <table>
+        <search>
+          <query>index="fintrack" event_type="auth_*" | table _time event_type username | sort -_time | head 20</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+      </table>
+    </panel>
+    <panel>
+      <title>Business Events (Loans, Payments, Chat)</title>
+      <table>
+        <search>
+          <query>index="fintrack" (event_type="loan_*" OR event_type="payment_*" OR event_type="borrower_*" OR event_type="ai_chat") | table _time event_type borrower amount question | sort -_time | head 20</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Traffic by HTTP Method Over Time</title>
+      <chart>
+        <search>
+          <query>index="fintrack" event_type="api_request" | timechart span=5m count by method</query>
+          <earliest>-60m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.chart.stackMode">stacked</option>
+      </chart>
+    </panel>
+    <panel>
+      <title>Error Rate Over Time</title>
+      <chart>
+        <search>
+          <query>index="fintrack" event_type="api_request" | timechart span=5m count as total count(eval(status_code&gt;=400)) as errors | eval error_rate=round((errors/total)*100,1) | fields _time error_rate</query>
+          <earliest>-60m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">line</option>
+      </chart>
+    </panel>
+  </row>
+
+</dashboard>
