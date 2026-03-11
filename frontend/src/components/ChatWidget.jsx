@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Sparkles, X, Send, Loader2, Bot, User } from "lucide-react";
+import { Sparkles, X, Send, Loader2, Bot, User, Trash2 } from "lucide-react";
 import { sendChatMessage } from "../api";
 
 const SUGGESTIONS = [
@@ -79,12 +79,23 @@ export default function ChatWidget() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <X size={18} />
-            </button>
+            <div className="flex items-center gap-1">
+              {messages.length > 0 && (
+                <button
+                  onClick={() => setMessages([])}
+                  title="Clear chat"
+                  className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+              <button
+                onClick={() => setOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
