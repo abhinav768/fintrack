@@ -923,16 +923,14 @@ def chat(
 
     try:
         from google import genai
-        from google.genai import types
         client = genai.Client(api_key=GEMINI_API_KEY)
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=f"{system_prompt}\n\nUser question: {data.message}",
-            config=types.GenerateContentConfig(
-                temperature=0.3,
-                max_output_tokens=2048,
-                thinking_config=types.ThinkingConfig(thinking_budget=256),
-            ),
+            config={
+                "temperature": 0.3,
+                "max_output_tokens": 2048,
+            },
         )
         reply = response.text or "I couldn't generate a response. Please try again."
     except Exception as e:
