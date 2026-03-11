@@ -1,7 +1,8 @@
 import os
+import time
 import logging
 import httpx
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -9,16 +10,46 @@ from sqlalchemy import func
 from dateutil.relativedelta import relativedelta
 from datetime import date
 
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("fintrack")
+logger.setLevel(logging.INFO)
 
 from database import engine, get_db, Base
 from auth import hash_password, verify_password, create_access_token, get_current_user
+from splunk_handler import setup_splunk_logging
 import models
 import schemas
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Finance Tracker")
+
+setup_splunk_logging()
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log every API request with method, path, status, and duration."""
+    start = time.time()
+    response = await call_next(request)
+    duration_ms = round((time.time() - start) * 1000, 1)
+
+    if request.url.path.startswith("/api/"):
+        logger.info(
+            "API %s %s -> %s (%.1fms)",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+            extra={"extra_fields": {
+                "event_type": "api_request",
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": duration_ms,
+            }},
+        )
+    return response
 
 MONTHLY_INTEREST_RATE = 4  # 4% per month simple interest
 DEFAULT_MONTHS = 10
@@ -67,6 +98,8 @@ def _set_config(db: Session, key: str, profile_id: int, value: str):
 def signup(data: schemas.UserSignup, db: Session = Depends(get_db)):
     existing = db.query(models.User).filter(models.User.username == data.username).first()
     if existing:
+        logger.warning("Signup failed — username already taken: %s", data.username,
+                        extra={"extra_fields": {"event_type": "auth_signup_failed", "username": data.username}})
         raise HTTPException(status_code=400, detail="Username already taken")
     user = models.User(
         username=data.username,
@@ -81,6 +114,8 @@ def signup(data: schemas.UserSignup, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     token = create_access_token(user.id)
+    logger.info("New user signed up: %s (id=%d)", user.username, user.id,
+                extra={"extra_fields": {"event_type": "auth_signup", "user_id": user.id, "username": user.username}})
     return {
         "token": token,
         "user": {"id": user.id, "username": user.username},
@@ -91,8 +126,12 @@ def signup(data: schemas.UserSignup, db: Session = Depends(get_db)):
 def login(data: schemas.UserLogin, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.username == data.username).first()
     if not user or not verify_password(data.password, user.password_hash):
+        logger.warning("Login failed for username: %s", data.username,
+                        extra={"extra_fields": {"event_type": "auth_login_failed", "username": data.username}})
         raise HTTPException(status_code=401, detail="Invalid username or password")
     token = create_access_token(user.id)
+    logger.info("User logged in: %s (id=%d)", user.username, user.id,
+                extra={"extra_fields": {"event_type": "auth_login", "user_id": user.id, "username": user.username}})
     return {
         "token": token,
         "user": {"id": user.id, "username": user.username},
@@ -387,6 +426,12 @@ def create_borrower(
     db.add(db_borrower)
     db.commit()
     db.refresh(db_borrower)
+    logger.info("Borrower created: id=%d, name=%s, profile=%d",
+                db_borrower.id, db_borrower.name, profile.id,
+                extra={"extra_fields": {
+                    "event_type": "borrower_created", "borrower_id": db_borrower.id,
+                    "borrower": db_borrower.name, "profile_id": profile.id,
+                }})
     return {"id": db_borrower.id, "name": db_borrower.name, "phone": db_borrower.phone}
 
 
@@ -500,6 +545,13 @@ def create_loan(
     db.add(db_loan)
     db.commit()
     db.refresh(db_loan)
+    logger.info("Loan created: id=%d, borrower=%s, principal=%.0f, profile=%d",
+                db_loan.id, borrower.name, loan.principal, profile.id,
+                extra={"extra_fields": {
+                    "event_type": "loan_created", "loan_id": db_loan.id,
+                    "borrower": borrower.name, "principal": loan.principal,
+                    "profile_id": profile.id,
+                }})
     return {
         "id": db_loan.id,
         "principal": db_loan.principal,
@@ -566,6 +618,12 @@ def delete_loan(
 ):
     profile = _require_profile(profile_id, user, db)
     loan = _get_profile_loan(db, loan_id, profile)
+    logger.info("Loan deleted: id=%d, borrower=%s, profile=%d",
+                loan.id, loan.borrower.name, profile.id,
+                extra={"extra_fields": {
+                    "event_type": "loan_deleted", "loan_id": loan.id,
+                    "borrower": loan.borrower.name, "profile_id": profile.id,
+                }})
     db.delete(loan)
     db.commit()
     return {"message": "Loan deleted"}
@@ -611,9 +669,19 @@ def add_payment(
     )
     if paid_count + 1 >= loan.total_months:
         loan.status = "completed"
+        logger.info("Loan completed: id=%d, borrower=%s",
+                    loan.id, loan.borrower.name,
+                    extra={"extra_fields": {"event_type": "loan_completed", "loan_id": loan.id}})
 
     db.commit()
     db.refresh(db_payment)
+    logger.info("Payment recorded: loan=%d, month=%d, amount=%.0f, borrower=%s",
+                loan_id, payment.month_number, payment.amount, loan.borrower.name,
+                extra={"extra_fields": {
+                    "event_type": "payment_recorded", "loan_id": loan_id,
+                    "month_number": payment.month_number, "amount": payment.amount,
+                    "borrower": loan.borrower.name, "profile_id": profile.id,
+                }})
     return {
         "id": db_payment.id,
         "amount": db_payment.amount,
@@ -937,6 +1005,11 @@ def chat(
         logger.error(f"Gemini API error: {e}")
         raise HTTPException(status_code=502, detail=f"AI service error: {str(e)}")
 
+    logger.info("AI chat: profile=%d, question=%s", profile.id, data.message[:80],
+                extra={"extra_fields": {
+                    "event_type": "ai_chat", "profile_id": profile.id,
+                    "question": data.message[:200],
+                }})
     return {"reply": reply}
 
 
