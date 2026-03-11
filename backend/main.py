@@ -915,6 +915,7 @@ def chat(
         "Be concise, friendly, and use Indian Rupee (Rs) formatting. "
         "IMPORTANT: Always write amounts as full numbers (e.g. Rs 35000, not Rs 35,00 or Rs 35K). "
         "Use the MONTH-BY-MONTH EMI SCHEDULE to answer questions about any specific month (past, current, or future). "
+        "Always give COMPLETE answers - if asked for top 5, list all 5. Never stop mid-list. "
         "If the data doesn't contain the answer, say so honestly. "
         "Do NOT make up numbers.\n\n"
         f"--- DATA ---\n{context}\n--- END DATA ---"
@@ -922,14 +923,16 @@ def chat(
 
     try:
         from google import genai
+        from google.genai import types
         client = genai.Client(api_key=GEMINI_API_KEY)
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=f"{system_prompt}\n\nUser question: {data.message}",
-            config={
-                "temperature": 0.3,
-                "max_output_tokens": 800,
-            },
+            config=types.GenerateContentConfig(
+                temperature=0.3,
+                max_output_tokens=2048,
+                thinking_config=types.ThinkingConfig(thinking_budget=256),
+            ),
         )
         reply = response.text or "I couldn't generate a response. Please try again."
     except Exception as e:
