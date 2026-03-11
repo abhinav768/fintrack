@@ -792,33 +792,35 @@ def _send_ntfy(topic: str, title: str, message: str):
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 def _build_profile_context(db: Session, profile: models.Profile) -> str:
-    """Build a concise text summary of the profile's financial data."""
+    """Build a detailed text summary of the profile's financial data."""
+    from dateutil.relativedelta import relativedelta as rd
+
+    today = date.today()
     borrowers = (
         db.query(models.Borrower)
         .filter(models.Borrower.profile_id == profile.id)
         .all()
     )
 
-    lines = [f"Profile: {profile.name}", f"Today: {date.today()}", ""]
+    lines = [f"Profile: {profile.name}", f"Today: {today}", ""]
 
     if not borrowers:
         lines.append("No borrowers or loans yet.")
         return "\n".join(lines)
 
+    all_loans = []
+    this_month_due = []
+    this_month_collected = []
+    overdue_emis = []
+
     lines.append("BORROWERS & LOANS:")
     for b in borrowers:
         for loan in b.loans:
+            all_loans.append(loan)
             total_paid = sum(p.amount for p in loan.payments)
             remaining = loan.total_return - total_paid
             months_paid = len(loan.payments)
-
-            unpaid_months = []
             payments_map = {p.month_number: p for p in loan.payments}
-            from dateutil.relativedelta import relativedelta as rd
-            for m in range(1, loan.total_months + 1):
-                if m not in payments_map:
-                    due = loan.cycle_start_date + rd(months=m - 1)
-                    unpaid_months.append(f"Month {m} (due {due})")
 
             lines.append(
                 f"- {b.name}: principal Rs {int(loan.principal)}, "
@@ -828,41 +830,72 @@ def _build_profile_context(db: Session, profile: models.Profile) -> str:
                 f"paid {months_paid}/{loan.total_months} months (Rs {int(total_paid)}), "
                 f"remaining Rs {int(remaining)}"
             )
-            if unpaid_months:
-                lines.append(f"  Unpaid: {', '.join(unpaid_months)}")
 
-    borrower_ids_sub = (
-        db.query(models.Borrower.id)
-        .filter(models.Borrower.profile_id == profile.id)
-        .subquery()
-    )
-    loan_ids_sub = (
-        db.query(models.Loan.id)
-        .filter(models.Loan.borrower_id.in_(borrower_ids_sub))
-        .subquery()
-    )
-    total_collected = float(
-        db.query(func.coalesce(func.sum(models.Payment.amount), 0))
-        .filter(models.Payment.loan_id.in_(loan_ids_sub))
-        .scalar()
-    )
+            for m in range(1, loan.total_months + 1):
+                due_date = loan.cycle_start_date + rd(months=m - 1)
+                paid = m in payments_map
+                if due_date.year == today.year and due_date.month == today.month:
+                    entry = {
+                        "borrower": b.name,
+                        "emi": int(loan.monthly_emi),
+                        "due_date": str(due_date),
+                        "due_day": due_date.day,
+                        "paid": paid,
+                    }
+                    this_month_due.append(entry)
+                    if paid:
+                        this_month_collected.append(entry)
+                elif not paid and due_date < today:
+                    overdue_emis.append({
+                        "borrower": b.name,
+                        "emi": int(loan.monthly_emi),
+                        "due_date": str(due_date),
+                    })
 
-    all_loans = (
-        db.query(models.Loan)
-        .filter(models.Loan.borrower_id.in_(borrower_ids_sub))
-        .all()
-    )
+    lines.append("")
+    lines.append(f"THIS MONTH ({today.strftime('%B %Y')}) EMI SCHEDULE:")
+    if this_month_due:
+        month_total = sum(e["emi"] for e in this_month_due)
+        month_collected = sum(e["emi"] for e in this_month_collected)
+        month_pending = month_total - month_collected
+        for e in sorted(this_month_due, key=lambda x: x["due_day"]):
+            status = "COLLECTED" if e["paid"] else "PENDING"
+            lines.append(
+                f"  - {e['borrower']}: Rs {e['emi']} due on {e['due_date']} [{status}]"
+            )
+        lines.append(
+            f"  TOTAL: {len(this_month_due)} EMIs, "
+            f"expected Rs {month_total}, "
+            f"collected Rs {month_collected}, "
+            f"pending Rs {month_pending}"
+        )
+    else:
+        lines.append("  No EMIs due this month.")
+
+    if overdue_emis:
+        lines.append("")
+        lines.append("OVERDUE EMIs (past due and unpaid):")
+        for e in overdue_emis:
+            lines.append(
+                f"  - {e['borrower']}: Rs {e['emi']} was due on {e['due_date']}"
+            )
+        lines.append(f"  TOTAL OVERDUE: {len(overdue_emis)} EMIs, Rs {sum(e['emi'] for e in overdue_emis)}")
+
     total_principal = sum(l.principal for l in all_loans)
     total_expected = sum(l.total_return for l in all_loans)
+    total_collected = sum(
+        sum(p.amount for p in l.payments) for l in all_loans
+    )
     active = sum(1 for l in all_loans if l.status == "active")
 
     lines.append("")
     lines.append(
-        f"SUMMARY: {len(all_loans)} loans ({active} active), "
-        f"principal Rs {int(total_principal)}, "
-        f"expected Rs {int(total_expected)}, "
-        f"collected Rs {int(total_collected)}, "
-        f"pending Rs {int(total_expected - total_collected)}"
+        f"OVERALL SUMMARY: {len(all_loans)} loans ({active} active), "
+        f"total principal Rs {int(total_principal)}, "
+        f"total expected Rs {int(total_expected)}, "
+        f"total collected Rs {int(total_collected)}, "
+        f"total pending Rs {int(total_expected - total_collected)}, "
+        f"total profit earned Rs {int(total_collected - total_principal) if total_collected > total_principal else 0}"
     )
 
     return "\n".join(lines)
@@ -887,6 +920,7 @@ def chat(
         "Answer questions based ONLY on the data provided below. "
         "Be concise, friendly, and use Indian Rupee (Rs) formatting. "
         "IMPORTANT: Always write amounts as full numbers (e.g. Rs 35000, not Rs 35,00 or Rs 35K). "
+        "Use the pre-computed sections like THIS MONTH EMI SCHEDULE, OVERDUE EMIs, and OVERALL SUMMARY to answer accurately. "
         "If the data doesn't contain the answer, say so honestly. "
         "Do NOT make up numbers.\n\n"
         f"--- DATA ---\n{context}\n--- END DATA ---"
@@ -900,7 +934,7 @@ def chat(
             contents=f"{system_prompt}\n\nUser question: {data.message}",
             config={
                 "temperature": 0.3,
-                "max_output_tokens": 500,
+                "max_output_tokens": 800,
             },
         )
         reply = response.text or "I couldn't generate a response. Please try again."
