@@ -821,12 +821,12 @@ def _build_profile_context(db: Session, profile: models.Profile) -> str:
                     unpaid_months.append(f"Month {m} (due {due})")
 
             lines.append(
-                f"- {b.name}: principal Rs {loan.principal:,.0f}, "
-                f"total return Rs {loan.total_return:,.0f}, "
-                f"EMI Rs {loan.monthly_emi:,.0f}/month, "
+                f"- {b.name}: principal Rs {int(loan.principal)}, "
+                f"total return Rs {int(loan.total_return)}, "
+                f"EMI Rs {int(loan.monthly_emi)}/month, "
                 f"{loan.total_months} months, status={loan.status}, "
-                f"paid {months_paid}/{loan.total_months} months (Rs {total_paid:,.0f}), "
-                f"remaining Rs {remaining:,.0f}"
+                f"paid {months_paid}/{loan.total_months} months (Rs {int(total_paid)}), "
+                f"remaining Rs {int(remaining)}"
             )
             if unpaid_months:
                 lines.append(f"  Unpaid: {', '.join(unpaid_months)}")
@@ -859,10 +859,10 @@ def _build_profile_context(db: Session, profile: models.Profile) -> str:
     lines.append("")
     lines.append(
         f"SUMMARY: {len(all_loans)} loans ({active} active), "
-        f"principal Rs {total_principal:,.0f}, "
-        f"expected Rs {total_expected:,.0f}, "
-        f"collected Rs {total_collected:,.0f}, "
-        f"pending Rs {total_expected - total_collected:,.0f}"
+        f"principal Rs {int(total_principal)}, "
+        f"expected Rs {int(total_expected)}, "
+        f"collected Rs {int(total_collected)}, "
+        f"pending Rs {int(total_expected - total_collected)}"
     )
 
     return "\n".join(lines)
@@ -886,6 +886,7 @@ def chat(
         "The user manages loans they give to borrowers and collects monthly EMIs. "
         "Answer questions based ONLY on the data provided below. "
         "Be concise, friendly, and use Indian Rupee (Rs) formatting. "
+        "IMPORTANT: Always write amounts as full numbers (e.g. Rs 35000, not Rs 35,00 or Rs 35K). "
         "If the data doesn't contain the answer, say so honestly. "
         "Do NOT make up numbers.\n\n"
         f"--- DATA ---\n{context}\n--- END DATA ---"
