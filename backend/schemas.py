@@ -48,3 +48,7 @@ class ProfileCreate(BaseModel):
 
 class ProfileUpdate(BaseModel):
     name: str
+
+
+class ChatMessage(BaseModel):
+    message: str

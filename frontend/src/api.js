@@ -76,3 +76,5 @@ export const updateNotificationSettings = (data) =>
   api.put("/settings/notifications", data).then((r) => r.data);
 export const sendTestNotification = () =>
   api.post("/notify/test").then((r) => r.data);
+export const sendChatMessage = (message) =>
+  api.post("/chat", { message }).then((r) => r.data);

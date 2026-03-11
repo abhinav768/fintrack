@@ -787,6 +787,129 @@ def _send_ntfy(topic: str, title: str, message: str):
         raise HTTPException(status_code=502, detail=f"Failed to send notification: {e}")
 
 
+# ── AI Chat (Gemini) ──────────────────────────────────────────────────────────
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
+def _build_profile_context(db: Session, profile: models.Profile) -> str:
+    """Build a concise text summary of the profile's financial data."""
+    borrowers = (
+        db.query(models.Borrower)
+        .filter(models.Borrower.profile_id == profile.id)
+        .all()
+    )
+
+    lines = [f"Profile: {profile.name}", f"Today: {date.today()}", ""]
+
+    if not borrowers:
+        lines.append("No borrowers or loans yet.")
+        return "\n".join(lines)
+
+    lines.append("BORROWERS & LOANS:")
+    for b in borrowers:
+        for loan in b.loans:
+            total_paid = sum(p.amount for p in loan.payments)
+            remaining = loan.total_return - total_paid
+            months_paid = len(loan.payments)
+
+            unpaid_months = []
+            payments_map = {p.month_number: p for p in loan.payments}
+            from dateutil.relativedelta import relativedelta as rd
+            for m in range(1, loan.total_months + 1):
+                if m not in payments_map:
+                    due = loan.cycle_start_date + rd(months=m - 1)
+                    unpaid_months.append(f"Month {m} (due {due})")
+
+            lines.append(
+                f"- {b.name}: principal Rs {loan.principal:,.0f}, "
+                f"total return Rs {loan.total_return:,.0f}, "
+                f"EMI Rs {loan.monthly_emi:,.0f}/month, "
+                f"{loan.total_months} months, status={loan.status}, "
+                f"paid {months_paid}/{loan.total_months} months (Rs {total_paid:,.0f}), "
+                f"remaining Rs {remaining:,.0f}"
+            )
+            if unpaid_months:
+                lines.append(f"  Unpaid: {', '.join(unpaid_months)}")
+
+    borrower_ids_sub = (
+        db.query(models.Borrower.id)
+        .filter(models.Borrower.profile_id == profile.id)
+        .subquery()
+    )
+    loan_ids_sub = (
+        db.query(models.Loan.id)
+        .filter(models.Loan.borrower_id.in_(borrower_ids_sub))
+        .subquery()
+    )
+    total_collected = float(
+        db.query(func.coalesce(func.sum(models.Payment.amount), 0))
+        .filter(models.Payment.loan_id.in_(loan_ids_sub))
+        .scalar()
+    )
+
+    all_loans = (
+        db.query(models.Loan)
+        .filter(models.Loan.borrower_id.in_(borrower_ids_sub))
+        .all()
+    )
+    total_principal = sum(l.principal for l in all_loans)
+    total_expected = sum(l.total_return for l in all_loans)
+    active = sum(1 for l in all_loans if l.status == "active")
+
+    lines.append("")
+    lines.append(
+        f"SUMMARY: {len(all_loans)} loans ({active} active), "
+        f"principal Rs {total_principal:,.0f}, "
+        f"expected Rs {total_expected:,.0f}, "
+        f"collected Rs {total_collected:,.0f}, "
+        f"pending Rs {total_expected - total_collected:,.0f}"
+    )
+
+    return "\n".join(lines)
+
+
+@app.post("/api/chat")
+def chat(
+    data: schemas.ChatMessage,
+    profile_id: int = Query(...),
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not GEMINI_API_KEY:
+        raise HTTPException(status_code=503, detail="AI not configured. Add GEMINI_API_KEY environment variable.")
+
+    profile = _require_profile(profile_id, user, db)
+    context = _build_profile_context(db, profile)
+
+    system_prompt = (
+        "You are FinTrack AI, a helpful assistant for a personal lending/finance tracker app. "
+        "The user manages loans they give to borrowers and collects monthly EMIs. "
+        "Answer questions based ONLY on the data provided below. "
+        "Be concise, friendly, and use Indian Rupee (Rs) formatting. "
+        "If the data doesn't contain the answer, say so honestly. "
+        "Do NOT make up numbers.\n\n"
+        f"--- DATA ---\n{context}\n--- END DATA ---"
+    )
+
+    try:
+        from google import genai
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=f"{system_prompt}\n\nUser question: {data.message}",
+            config={
+                "temperature": 0.3,
+                "max_output_tokens": 500,
+            },
+        )
+        reply = response.text or "I couldn't generate a response. Please try again."
+    except Exception as e:
+        logger.error(f"Gemini API error: {e}")
+        raise HTTPException(status_code=502, detail=f"AI service error: {str(e)}")
+
+    return {"reply": reply}
+
+
 # ── Static frontend ───────────────────────────────────────────────────────────
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")

@@ -10,6 +10,7 @@ import Settings from "./components/Settings";
 import Login from "./components/Login";
 import Signup from "./components/Signup";
 import ProfilePicker from "./components/ProfilePicker";
+import ChatWidget from "./components/ChatWidget";
 import { Loader2 } from "lucide-react";
 
 function AppRoutes() {
@@ -59,6 +60,7 @@ function AppRoutes() {
           </Routes>
         </div>
       </main>
+      <ChatWidget />
     </div>
   );
 }
