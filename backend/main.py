@@ -809,8 +809,7 @@ def _build_profile_context(db: Session, profile: models.Profile) -> str:
         return "\n".join(lines)
 
     all_loans = []
-    this_month_due = []
-    this_month_collected = []
+    monthly_schedule = {}  # (year, month) -> list of entries
     overdue_emis = []
 
     lines.append("BORROWERS & LOANS:")
@@ -834,18 +833,16 @@ def _build_profile_context(db: Session, profile: models.Profile) -> str:
             for m in range(1, loan.total_months + 1):
                 due_date = loan.cycle_start_date + rd(months=m - 1)
                 paid = m in payments_map
-                if due_date.year == today.year and due_date.month == today.month:
-                    entry = {
-                        "borrower": b.name,
-                        "emi": int(loan.monthly_emi),
-                        "due_date": str(due_date),
-                        "due_day": due_date.day,
-                        "paid": paid,
-                    }
-                    this_month_due.append(entry)
-                    if paid:
-                        this_month_collected.append(entry)
-                elif not paid and due_date < today:
+                key = (due_date.year, due_date.month)
+                entry = {
+                    "borrower": b.name,
+                    "emi": int(loan.monthly_emi),
+                    "due_date": str(due_date),
+                    "due_day": due_date.day,
+                    "paid": paid,
+                }
+                monthly_schedule.setdefault(key, []).append(entry)
+                if not paid and due_date < today.replace(day=1):
                     overdue_emis.append({
                         "borrower": b.name,
                         "emi": int(loan.monthly_emi),
@@ -853,32 +850,29 @@ def _build_profile_context(db: Session, profile: models.Profile) -> str:
                     })
 
     lines.append("")
-    lines.append(f"THIS MONTH ({today.strftime('%B %Y')}) EMI SCHEDULE:")
-    if this_month_due:
-        month_total = sum(e["emi"] for e in this_month_due)
-        month_collected = sum(e["emi"] for e in this_month_collected)
+    lines.append("MONTH-BY-MONTH EMI SCHEDULE:")
+    for key in sorted(monthly_schedule.keys()):
+        entries = monthly_schedule[key]
+        month_label = date(key[0], key[1], 1).strftime("%B %Y")
+        is_current = key == (today.year, today.month)
+        tag = " (CURRENT MONTH)" if is_current else ""
+        month_total = sum(e["emi"] for e in entries)
+        month_collected = sum(e["emi"] for e in entries if e["paid"])
         month_pending = month_total - month_collected
-        for e in sorted(this_month_due, key=lambda x: x["due_day"]):
+        lines.append(f"  {month_label}{tag}:")
+        for e in sorted(entries, key=lambda x: x["due_day"]):
             status = "COLLECTED" if e["paid"] else "PENDING"
-            lines.append(
-                f"  - {e['borrower']}: Rs {e['emi']} due on {e['due_date']} [{status}]"
-            )
+            lines.append(f"    {e['borrower']}: Rs {e['emi']} due {e['due_date']} [{status}]")
         lines.append(
-            f"  TOTAL: {len(this_month_due)} EMIs, "
-            f"expected Rs {month_total}, "
-            f"collected Rs {month_collected}, "
-            f"pending Rs {month_pending}"
+            f"    Total: {len(entries)} EMIs, expected Rs {month_total}, "
+            f"collected Rs {month_collected}, pending Rs {month_pending}"
         )
-    else:
-        lines.append("  No EMIs due this month.")
 
     if overdue_emis:
         lines.append("")
-        lines.append("OVERDUE EMIs (past due and unpaid):")
+        lines.append("OVERDUE EMIs (past months, unpaid):")
         for e in overdue_emis:
-            lines.append(
-                f"  - {e['borrower']}: Rs {e['emi']} was due on {e['due_date']}"
-            )
+            lines.append(f"  - {e['borrower']}: Rs {e['emi']} was due on {e['due_date']}")
         lines.append(f"  TOTAL OVERDUE: {len(overdue_emis)} EMIs, Rs {sum(e['emi'] for e in overdue_emis)}")
 
     total_principal = sum(l.principal for l in all_loans)
@@ -920,7 +914,7 @@ def chat(
         "Answer questions based ONLY on the data provided below. "
         "Be concise, friendly, and use Indian Rupee (Rs) formatting. "
         "IMPORTANT: Always write amounts as full numbers (e.g. Rs 35000, not Rs 35,00 or Rs 35K). "
-        "Use the pre-computed sections like THIS MONTH EMI SCHEDULE, OVERDUE EMIs, and OVERALL SUMMARY to answer accurately. "
+        "Use the MONTH-BY-MONTH EMI SCHEDULE to answer questions about any specific month (past, current, or future). "
         "If the data doesn't contain the answer, say so honestly. "
         "Do NOT make up numbers.\n\n"
         f"--- DATA ---\n{context}\n--- END DATA ---"
