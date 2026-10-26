@@ -64,10 +64,13 @@ class BalanceUpdate(BaseModel):
     base_balance: Annotated[Decimal, Field(ge=-MAX_AMOUNT, le=MAX_AMOUNT), AfterValidator(to_money)]
 
 
+Topic = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[A-Za-z0-9_-]{1,64}$")]
+
+
 class NotificationSettings(BaseModel):
-    ntfy_topic: Annotated[str, StringConstraints(strip_whitespace=True, max_length=64)]
-    ntfy_topic_2: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=64)]] = ""
-    notify_secret: Annotated[str, StringConstraints(strip_whitespace=True, max_length=128)]
+    ntfy_topic: Topic
+    ntfy_topic_2: Optional[Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^([A-Za-z0-9_-]{1,64})?$")]] = ""
+    notify_secret: Annotated[str, StringConstraints(strip_whitespace=True, min_length=16, max_length=128)]
 
 
 class UserSignup(BaseModel):

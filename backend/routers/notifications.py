@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+import hmac
+import logging
+import secrets
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 
 import models
@@ -9,6 +13,7 @@ from deps import get_config, profile_loans_query, require_profile, set_config
 from services import notify, timeutil
 from services.schedule import build_schedule
 
+logger = logging.getLogger("fintrack")
 router = APIRouter(prefix="/api")
 
 
@@ -61,13 +66,28 @@ def test_notification(
     return {"message": "Test notification sent"}
 
 
+@router.post("/settings/notifications/generate-secret")
+def generate_notify_secret(user: models.User = Depends(get_current_user)):
+    return {"notify_secret": secrets.token_urlsafe(32)}
+
+
 @router.get("/notify/daily-reminders")
-def send_daily_reminders(token: str = Query(...), db: Session = Depends(get_db)):
+def send_daily_reminders(
+    token: str | None = Query(None),
+    x_notify_token: str | None = Header(None),
+    db: Session = Depends(get_db),
+):
     """Cron endpoint: iterates all profiles, sends reminders where token matches."""
+    supplied = x_notify_token or token
+    if not supplied:
+        raise HTTPException(status_code=401, detail="Missing X-Notify-Token header")
+    if not x_notify_token:
+        logger.warning("daily-reminders called with ?token= query param; switch the cron job to the X-Notify-Token header")
+
     total_sent = 0
     for p in db.query(models.Profile).all():
         secret = get_config(db, "notify_secret", p.id, "")
-        if not secret or token != secret:
+        if not secret or not hmac.compare_digest(secret.encode(), supplied.encode()):
             continue
         topic = get_config(db, "ntfy_topic", p.id, "")
         if not topic:
@@ -85,10 +105,11 @@ def send_daily_reminders(token: str = Query(...), db: Session = Depends(get_db))
             continue
 
         total = sum(e["amount"] for e in due_today)
-        lines = [f"- {e['name']}: Rs {e['amount']:,.0f} (Month {e['month']})" for e in due_today]
-        lines.append(f"\nTotal: Rs {total:,.0f}")
         title = f"EMI Reminder - {today.strftime('%d %B %Y')}"
-        body = f"{len(due_today)} EMI(s) to collect today:\n" + "\n".join(lines)
+        body = (
+            f"{len(due_today)} EMI(s) due today - Rs {total:,.0f} total. "
+            "Open FinTrack for details."
+        )
         notify.send_ntfy(topic, title, body)
         topic_2 = get_config(db, "ntfy_topic_2", p.id, "")
         if topic_2:
