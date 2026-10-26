@@ -8,13 +8,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("fintrack")
 logger.setLevel(logging.INFO)
 
-from database import Base, engine
 from frontend_static import register_frontend
 from routers import auth, borrowers, chat, dashboard, loans, notifications, payments, profiles
 from splunk_handler import setup_splunk_logging
-import models  # noqa: F401  (registers tables on Base.metadata)
-
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Finance Tracker")
 

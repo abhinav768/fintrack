@@ -23,4 +23,4 @@ VOLUME ["/app/data"]
 ENV PYTHONUNBUFFERED=1
 ENV DATA_DIR=/app/data
 
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD ["sh", "start.sh"]
