@@ -1,23 +1,30 @@
 /** @type {import('tailwindcss').Config} */
+const v = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
         ink: {
-          950: "#0A0A0B",
-          900: "#111113",
-          850: "#161618",
-          800: "#1C1C1F",
-          700: "#2A2A2E",
-          600: "#3A3A3F",
+          950: v("ink-950"),
+          900: v("ink-900"),
+          850: v("ink-850"),
+          800: v("ink-800"),
+          700: v("ink-700"),
+          600: v("ink-600"),
         },
-        paper: "#EDEBE4",
-        muted: "#8E8C85",
-        faint: "#5E5D59",
-        lime: { DEFAULT: "#D4FF3A", soft: "#E3FF7A" },
-        coral: "#FF7A59",
-        amber: { DEFAULT: "#F2B33D" },
+        paper: v("paper"),
+        muted: v("muted"),
+        faint: v("faint"),
+        line: v("line"),
+        lime: { DEFAULT: v("lime"), soft: v("lime-soft") },
+        accent: v("accent"),
+        onlime: v("onlime"),
+        coral: v("coral"),
+        amber: { DEFAULT: v("amber") },
+        sky: v("sky"),
+        violet: v("violet"),
       },
       fontFamily: {
         display: ['"Instrument Serif"', "Georgia", "serif"],

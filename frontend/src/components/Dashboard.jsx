@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, Pencil, X, Check, Plus } from "lucide-react";
+import { ArrowLeftRight, ArrowUpRight, Pencil, X, Check, Plus } from "lucide-react";
 import { useAuth } from "../AuthContext";
 import {
   getDashboard,
@@ -12,6 +12,7 @@ import {
 } from "../api";
 import { formatCurrency, formatDayMonth, errorMessage } from "../lib/format";
 import { useToast } from "./Toast";
+import MoveMoney from "./MoveMoney";
 import {
   Avatar,
   EmptyState,
@@ -49,18 +50,92 @@ function Ticker({ items }) {
         <span key={label} className="flex items-center gap-3 px-6">
           <span className="eyebrow">{label}</span>
           <span className="figure text-sm text-paper">{value}</span>
-          <span className="ml-6 h-1 w-1 rounded-full bg-lime" />
+          <span className="ml-6 h-1 w-1 rounded-full bg-accent" />
         </span>
       ))}
     </div>
   );
   return (
-    <div className="relative -mx-5 overflow-hidden border-y border-white/[0.07] py-3.5 sm:-mx-8 lg:-mx-12">
+    <div className="relative -mx-5 overflow-hidden border-y border-line/[0.07] py-3.5 sm:-mx-8 lg:-mx-12">
       <div className="flex w-max animate-marquee hover:[animation-play-state:paused]">
         {row}
         {row}
       </div>
     </div>
+  );
+}
+
+function AccountCard({ title, account, onSaveOpening, delay }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const transfers = account.transfers_in - account.transfers_out;
+
+  const save = async () => {
+    const parsed = parseFloat(value);
+    if (isNaN(parsed)) return;
+    if (await onSaveOpening(parsed)) setEditing(false);
+  };
+
+  return (
+    <Reveal delay={delay} className="card p-5">
+      <p className="eyebrow">{title}</p>
+      <p className="figure mt-4 text-2xl text-paper sm:text-3xl">{formatCurrency(account.balance)}</p>
+      <dl className="mt-4 space-y-1.5 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <dt className="text-muted">Opening</dt>
+          {editing ? (
+            <dd className="flex items-center gap-1">
+              <input
+                type="number"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && save()}
+                className="input w-28 px-2 py-1 text-right figure text-xs"
+                autoFocus
+              />
+              <button onClick={save} className="btn-icon p-1 text-accent" aria-label="Save">
+                <Check size={14} />
+              </button>
+              <button onClick={() => setEditing(false)} className="btn-icon p-1" aria-label="Cancel">
+                <X size={14} />
+              </button>
+            </dd>
+          ) : (
+            <dd>
+              <button
+                onClick={() => {
+                  setValue(String(account.opening));
+                  setEditing(true);
+                }}
+                className="group flex items-center gap-1.5 figure text-paper"
+                title="Edit opening balance"
+              >
+                {formatCurrency(account.opening)}
+                <Pencil size={11} className="text-faint transition-colors group-hover:text-accent" />
+              </button>
+            </dd>
+          )}
+        </div>
+        {account.collections > 0 && (
+          <div className="flex justify-between">
+            <dt className="text-muted">+ EMIs</dt>
+            <dd className="figure text-accent">{formatCurrency(account.collections)}</dd>
+          </div>
+        )}
+        {account.lending > 0 && (
+          <div className="flex justify-between">
+            <dt className="text-muted">− Lent</dt>
+            <dd className="figure text-amber">{formatCurrency(account.lending)}</dd>
+          </div>
+        )}
+        {transfers !== 0 && (
+          <div className="flex justify-between">
+            <dt className="text-muted">{transfers > 0 ? "+ Moved in" : "− Moved out"}</dt>
+            <dd className="figure text-paper">{formatCurrency(Math.abs(transfers))}</dd>
+          </div>
+        )}
+      </dl>
+    </Reveal>
   );
 }
 
@@ -73,8 +148,7 @@ export default function Dashboard() {
   const [monthly, setMonthly] = useState(null);
   const [overdue, setOverdue] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [editingBalance, setEditingBalance] = useState(false);
-  const [newBalance, setNewBalance] = useState("");
+  const [moveOpen, setMoveOpen] = useState(false);
 
   useEffect(() => {
     Promise.allSettled([
@@ -97,19 +171,20 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [toast]);
 
-  const animatedBalance = useCountUp(balance?.current_balance ?? 0, 1200);
+  const animatedTotal = useCountUp(balance?.total_on_hand ?? 0, 1200);
 
-  const handleSaveBalance = async () => {
-    const val = parseFloat(newBalance);
-    if (isNaN(val)) return;
+  const saveOpening = (account) => async (value) => {
     try {
-      setBalance(await updateBalance({ base_balance: val }));
-      setEditingBalance(false);
-      toast.success("Balance updated");
+      setBalance(await updateBalance({ base_balance: value, account }));
+      toast.success("Opening balance updated");
+      return true;
     } catch (err) {
       toast.error(errorMessage(err, "Failed to update balance"));
+      return false;
     }
   };
+
+  const refreshBalance = () => getBalance().then(setBalance).catch(() => {});
 
   if (loading) return <PageLoader />;
 
@@ -127,9 +202,22 @@ export default function Dashboard() {
   const lifetimePct = pct(stats.total_collected, stats.total_expected_return);
 
   const tiles = [
-    { label: "Total lent", value: stats.total_principal_given, note: `${stats.total_loans} loans` },
+    {
+      label: "Total lent",
+      value: stats.total_principal_given,
+      note: balance?.lent_from_capital > 0
+        ? `${stats.total_loans} loans · ${formatCurrency(balance.lent_from_capital)} from capital`
+        : `${stats.total_loans} loans`,
+    },
     { label: "Expected return", value: stats.total_expected_return, note: "Principal + interest" },
-    { label: "Collected", value: stats.total_collected, note: `${lifetimePct}% of expected`, accent: true },
+    {
+      label: "Collected",
+      value: stats.total_collected,
+      note: balance
+        ? `UPI ${formatCurrency(balance.collected_online)} · Cash ${formatCurrency(balance.collected_cash)}`
+        : `${lifetimePct}% of expected`,
+      accent: true,
+    },
     { label: "Pending", value: stats.total_pending, note: `${stats.active_loans} active` },
   ];
 
@@ -139,70 +227,40 @@ export default function Dashboard() {
       <section className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-end">
         <div>
           <Reveal as="p" className="eyebrow">
-            <span className="text-lime">01</span>
+            <span className="text-accent">01</span>
             <span className="mx-2 text-faint">/</span>
             {greeting()}, {profile?.name}
           </Reveal>
-          <Reveal delay={80} as="p" className="mt-8 text-sm text-muted">
-            Account balance
+          <Reveal delay={80} className="mt-8 flex items-center justify-between gap-4">
+            <p className="text-sm text-muted">Total on hand</p>
+            <button onClick={() => setMoveOpen(true)} className="btn-ghost px-4 py-2 text-xs">
+              <ArrowLeftRight size={14} /> Move money
+            </button>
           </Reveal>
           <Reveal delay={140}>
             <h1 className="display mt-2 break-all text-[3.75rem] sm:text-8xl xl:text-[8.5rem]">
               <Money
-                value={Math.round(animatedBalance)}
+                value={Math.round(animatedTotal)}
                 symbolClass="mr-1 align-[0.55em] font-sans text-[0.32em] font-normal text-muted sm:mr-3"
               />
             </h1>
           </Reveal>
 
           {balance && (
-            <Reveal delay={220} className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-muted">Opening</span>
-                {editingBalance ? (
-                  <span className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      value={newBalance}
-                      onChange={(e) => setNewBalance(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleSaveBalance()}
-                      className="input w-32 py-1.5 text-center figure"
-                      autoFocus
-                    />
-                    <button onClick={handleSaveBalance} className="btn-icon text-lime" aria-label="Save">
-                      <Check size={15} />
-                    </button>
-                    <button onClick={() => setEditingBalance(false)} className="btn-icon" aria-label="Cancel">
-                      <X size={15} />
-                    </button>
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setNewBalance(String(balance.base_balance));
-                      setEditingBalance(true);
-                    }}
-                    className="group flex items-center gap-1.5 figure text-paper"
-                    title="Edit opening balance"
-                  >
-                    {formatCurrency(balance.base_balance)}
-                    <Pencil size={12} className="text-faint transition-colors group-hover:text-lime" />
-                  </button>
-                )}
-              </div>
-              {balance.new_collections > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-muted">+ EMIs</span>
-                  <span className="figure text-lime">{formatCurrency(balance.new_collections)}</span>
-                </div>
-              )}
-              {balance.new_lending > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-muted">− Lent</span>
-                  <span className="figure text-amber">{formatCurrency(balance.new_lending)}</span>
-                </div>
-              )}
-            </Reveal>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <AccountCard
+                title="Collection account"
+                account={balance.collection}
+                onSaveOpening={saveOpening("collection")}
+                delay={200}
+              />
+              <AccountCard
+                title="Cash in hand"
+                account={balance.cash}
+                onSaveOpening={saveOpening("cash")}
+                delay={240}
+              />
+            </div>
           )}
         </div>
 
@@ -221,6 +279,16 @@ export default function Dashboard() {
             <div className="mt-4 flex justify-between text-xs">
               <span className="figure text-paper">{formatCurrency(monthly.collected_total)}</span>
               <span className="figure text-muted">of {formatCurrency(monthly.expected_total)}</span>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-3 border-t border-line/[0.07] pt-4 text-xs">
+              <div>
+                <p className="text-muted">Online (UPI)</p>
+                <p className="figure mt-1 text-paper">{formatCurrency(monthly.collected_online)}</p>
+              </div>
+              <div>
+                <p className="text-muted">Cash</p>
+                <p className="figure mt-1 text-paper">{formatCurrency(monthly.collected_cash)}</p>
+              </div>
             </div>
           </Reveal>
         )}
@@ -241,11 +309,11 @@ export default function Dashboard() {
       </Reveal>
 
       {/* Stat tiles */}
-      <section className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.07] lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line/[0.07] bg-line/[0.07] lg:grid-cols-4">
         {tiles.map((t, i) => (
           <Reveal key={t.label} delay={380 + i * 60} className="bg-ink-950 p-5 sm:p-6">
             <p className="eyebrow">{t.label}</p>
-            <p className={`figure mt-5 text-xl sm:text-3xl ${t.accent ? "text-lime" : "text-paper"}`}>
+            <p className={`figure mt-5 text-xl sm:text-3xl ${t.accent ? "text-accent" : "text-paper"}`}>
               {formatCurrency(t.value)}
             </p>
             <p className="mt-2 text-xs text-muted">{t.note}</p>
@@ -308,7 +376,7 @@ export default function Dashboard() {
             {monthly.emis.length === 0 ? (
               <p className="px-6 pb-10 pt-4 text-sm text-muted">No EMIs due this month.</p>
             ) : (
-              <div className="max-h-[440px] divide-y divide-white/[0.06] overflow-y-auto border-t border-white/[0.06] scrollbar-thin">
+              <div className="max-h-[440px] divide-y divide-line/[0.06] overflow-y-auto border-t border-line/[0.06] scrollbar-thin">
                 {[...monthly.emis]
                   .sort((a, b) => a.due_date.localeCompare(b.due_date))
                   .map((emi) => (
@@ -331,7 +399,7 @@ export default function Dashboard() {
                           {formatCurrency(emi.emi_amount)}
                         </span>
                         {emi.paid ? (
-                          <span className="chip-lime">Paid</span>
+                          <span className="chip-lime">{emi.method === "cash" ? "Cash" : "UPI"}</span>
                         ) : emi.status === "partial" ? (
                           <span className="chip-amber">Partial</span>
                         ) : (
@@ -357,14 +425,14 @@ export default function Dashboard() {
             Active <em className="text-muted">loans</em>
           </SectionTitle>
           {activeLoans.length === 0 ? (
-            <div className="border-t border-white/[0.06] px-6 py-10">
+            <div className="border-t border-line/[0.06] px-6 py-10">
               <p className="text-sm text-muted">No active loans yet.</p>
               <Link to="/add-loan" className="btn-primary mt-5">
                 <Plus size={16} /> Create your first loan
               </Link>
             </div>
           ) : (
-            <div className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
+            <div className="divide-y divide-line/[0.06] border-t border-line/[0.06]">
               {activeLoans.slice(0, 6).map((loan) => {
                 const progress = pct(loan.total_paid, loan.total_return);
                 return (
@@ -388,7 +456,7 @@ export default function Dashboard() {
                       </div>
                       <ArrowUpRight
                         size={16}
-                        className="text-faint transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-lime"
+                        className="text-faint transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent"
                       />
                     </div>
                   </Link>
@@ -398,6 +466,8 @@ export default function Dashboard() {
           )}
         </Reveal>
       </section>
+
+      {moveOpen && <MoveMoney onClose={() => setMoveOpen(false)} onChanged={refreshBalance} />}
     </div>
   );
 }

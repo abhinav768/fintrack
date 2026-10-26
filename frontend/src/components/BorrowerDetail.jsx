@@ -26,7 +26,7 @@ export default function BorrowerDetail() {
   const { totals } = borrower;
   const facts = [
     { label: "Lent", value: formatCurrency(totals.lent) },
-    { label: "Collected", value: formatCurrency(totals.collected), tone: "text-lime" },
+    { label: "Collected", value: formatCurrency(totals.collected), tone: "text-accent" },
     { label: "Outstanding", value: formatCurrency(totals.outstanding) },
     { label: "Overdue EMIs", value: totals.overdue_count, tone: totals.overdue_count ? "text-coral" : "" },
   ];
@@ -37,7 +37,7 @@ export default function BorrowerDetail() {
         <ArrowLeft size={15} /> Back
       </button>
 
-      <Reveal className="flex flex-col gap-5 border-b border-white/[0.07] pb-10 sm:flex-row sm:items-end sm:justify-between">
+      <Reveal className="flex flex-col gap-5 border-b border-line/[0.07] pb-10 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-center gap-5">
           <Avatar name={borrower.name} size="lg" />
           <div>
@@ -52,11 +52,11 @@ export default function BorrowerDetail() {
         )}
       </Reveal>
 
-      <Reveal delay={80} className="mb-10 grid grid-cols-2 border-b border-white/[0.07] lg:grid-cols-4">
+      <Reveal delay={80} className="mb-10 grid grid-cols-2 border-b border-line/[0.07] lg:grid-cols-4">
         {facts.map((f, i) => (
           <div
             key={f.label}
-            className={`py-6 ${i % 2 ? "border-l border-white/[0.07] pl-5" : "pr-5"} ${i > 0 ? "lg:border-l lg:border-white/[0.07] lg:pl-6" : ""}`}
+            className={`py-6 ${i % 2 ? "border-l border-line/[0.07] pl-5" : "pr-5"} ${i > 0 ? "lg:border-l lg:border-line/[0.07] lg:pl-6" : ""}`}
           >
             <p className="eyebrow">{f.label}</p>
             <p className={`figure mt-3 text-xl sm:text-2xl ${f.tone || "text-paper"}`}>{f.value}</p>
@@ -71,9 +71,9 @@ export default function BorrowerDetail() {
           </h3>
         </div>
         {borrower.loans.length === 0 ? (
-          <p className="border-t border-white/[0.06] px-6 py-10 text-sm text-muted">No loans for this borrower yet.</p>
+          <p className="border-t border-line/[0.06] px-6 py-10 text-sm text-muted">No loans for this borrower yet.</p>
         ) : (
-          <div className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
+          <div className="divide-y divide-line/[0.06] border-t border-line/[0.06]">
             {borrower.loans.map((loan) => {
               const progress = loan.total_return > 0 ? (loan.total_paid / loan.total_return) * 100 : 0;
               return (
@@ -95,7 +95,7 @@ export default function BorrowerDetail() {
                     </div>
                     <ArrowUpRight
                       size={16}
-                      className="text-faint transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-lime"
+                      className="text-faint transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent"
                     />
                   </div>
                 </Link>

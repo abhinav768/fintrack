@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { getBorrowers, createBorrower, createLoan, previewLoan } from "../api";
 import { formatCurrency, formatMonthYear, todayISO, errorMessage } from "../lib/format";
-import { PageHeader, Reveal } from "./ui";
+import { FUNDING_SOURCES, fundingLabel } from "../lib/money";
+import { PageHeader, Reveal, Segmented } from "./ui";
 
 function firstEmiMonth(loanDate) {
   if (!loanDate) return null;
@@ -23,6 +24,7 @@ export default function AddLoan() {
   const [totalMonths, setTotalMonths] = useState(10);
   const [monthlyRate, setMonthlyRate] = useState("4");
   const [loanDate, setLoanDate] = useState(todayISO());
+  const [fundingSource, setFundingSource] = useState("capital");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState(null);
@@ -94,6 +96,7 @@ export default function AddLoan() {
         loan_date: loanDate,
         total_months: totalMonths,
         monthly_rate: rateNum,
+        funding_source: fundingSource,
       });
       navigate("/loans");
     } catch (err) {
@@ -175,7 +178,7 @@ export default function AddLoan() {
           {/* Amount */}
           <fieldset>
             <span className="eyebrow mb-3 block">02 · Amount</span>
-            <div className="flex items-baseline gap-3 border-b border-white/10 pb-3 transition-colors focus-within:border-lime/60">
+            <div className="flex items-baseline gap-3 border-b border-line/10 pb-3 transition-colors focus-within:border-lime/60">
               <span className="font-display text-4xl text-muted">₹</span>
               <input
                 type="number"
@@ -201,8 +204,8 @@ export default function AddLoan() {
                     onClick={() => setTotalMonths(m)}
                     className={`flex-1 rounded-xl border py-3 font-mono text-sm transition-colors ${
                       totalMonths === m
-                        ? "border-lime bg-lime text-ink-950"
-                        : "border-white/10 text-muted hover:border-white/25 hover:text-paper"
+                        ? "border-lime bg-lime text-onlime"
+                        : "border-line/10 text-muted hover:border-line/25 hover:text-paper"
                     }`}
                   >
                     {m}
@@ -248,12 +251,24 @@ export default function AddLoan() {
               className="input sm:w-64"
             />
           </fieldset>
+
+          <fieldset>
+            <span className="eyebrow mb-3 block">06 · Money from</span>
+            <Segmented
+              options={FUNDING_SOURCES.map(({ id, label }) => ({ id, label }))}
+              value={fundingSource}
+              onChange={setFundingSource}
+            />
+            <p className="mt-2 text-xs text-muted">
+              {FUNDING_SOURCES.find((s) => s.id === fundingSource).hint}
+            </p>
+          </fieldset>
         </Reveal>
 
         {/* Receipt */}
         <Reveal delay={160} className="lg:sticky lg:top-8 lg:self-start">
           <div className="card overflow-hidden">
-            <div className="border-b border-dashed border-white/10 p-6">
+            <div className="border-b border-dashed border-line/10 p-6">
               <p className="eyebrow">Summary</p>
               <p className="display mt-3 truncate text-3xl">{borrowerLabel}</p>
             </div>
@@ -263,6 +278,7 @@ export default function AddLoan() {
                 ["Interest", preview ? `${formatCurrency(interest)} · ${preview.interest_pct}%` : "—"],
                 ["Tenure", `${totalMonths} months`],
                 ["First EMI", firstEmiMonth(loanDate) || "—"],
+                ["From", fundingLabel(fundingSource)],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-4">
                   <dt className="text-muted">{k}</dt>
@@ -270,9 +286,9 @@ export default function AddLoan() {
                 </div>
               ))}
             </dl>
-            <div className="border-t border-dashed border-white/10 p-6">
+            <div className="border-t border-dashed border-line/10 p-6">
               <p className="eyebrow">Monthly EMI</p>
-              <p className="display mt-2 text-5xl text-lime">
+              <p className="display mt-2 text-5xl text-accent">
                 {preview ? formatCurrency(preview.monthly_emi) : "₹0"}
               </p>
               <div className="mt-4 flex justify-between text-sm">

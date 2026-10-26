@@ -55,9 +55,9 @@ export default function ChatWidget() {
         <button
           onClick={() => setOpen(true)}
           aria-label="Open AI assistant"
-          className="group fixed bottom-24 right-5 z-40 flex h-12 items-center gap-2 rounded-full border border-white/10 bg-ink-800/90 pl-3 pr-4 text-sm text-paper shadow-2xl backdrop-blur-xl transition-all duration-300 hover:border-lime/40 md:bottom-8 md:right-8"
+          className="group fixed bottom-24 right-5 z-40 flex h-12 items-center gap-2 rounded-full border border-line/10 bg-ink-800/90 pl-3 pr-4 text-sm text-paper shadow-2xl backdrop-blur-xl transition-all duration-300 hover:border-lime/40 md:bottom-8 md:right-8"
         >
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-lime text-ink-950 transition-transform duration-500 group-hover:rotate-[20deg]">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-lime text-onlime transition-transform duration-500 group-hover:rotate-[20deg]">
             <Sparkles size={14} />
           </span>
           <span className="hidden sm:inline">Ask FinTrack</span>
@@ -65,12 +65,12 @@ export default function ChatWidget() {
       )}
 
       {open && (
-        <div className="fixed inset-x-3 bottom-24 z-50 flex h-[min(560px,calc(100vh-8rem))] animate-rise flex-col overflow-hidden rounded-3xl border border-white/10 bg-ink-900/95 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-8 sm:w-[400px] md:bottom-8">
-          <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
+        <div className="fixed inset-x-3 bottom-24 z-50 flex h-[min(560px,calc(100vh-8rem))] animate-rise flex-col overflow-hidden rounded-3xl border border-line/10 bg-ink-900/95 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-8 sm:w-[400px] md:bottom-8">
+          <div className="flex items-center justify-between border-b border-line/[0.07] px-5 py-4">
             <div>
               <p className="eyebrow">Assistant</p>
               <h3 className="display mt-1 text-2xl">
-                Ask <em className="text-lime">anything</em>
+                Ask <em className="text-accent">anything</em>
               </h3>
             </div>
             <div className="flex items-center gap-1">
@@ -100,7 +100,7 @@ export default function ChatWidget() {
                     <button
                       key={s}
                       onClick={() => send(s)}
-                      className="rounded-full border border-white/10 px-4 py-2 text-sm text-paper transition-colors hover:border-lime/40 hover:text-lime"
+                      className="rounded-full border border-line/10 px-4 py-2 text-sm text-paper transition-colors hover:border-lime/40 hover:text-accent"
                     >
                       {s}
                     </button>
@@ -114,8 +114,8 @@ export default function ChatWidget() {
                 <div
                   className={`max-w-[85%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                     msg.role === "user"
-                      ? "rounded-br-md bg-lime text-ink-950"
-                      : "rounded-bl-md bg-white/[0.05] text-paper"
+                      ? "rounded-br-md bg-lime text-onlime"
+                      : "rounded-bl-md bg-line/[0.05] text-paper"
                   }`}
                 >
                   {msg.text}
@@ -125,10 +125,10 @@ export default function ChatWidget() {
 
             {loading && (
               <div className="flex">
-                <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-white/[0.05] px-4 py-3.5">
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-lime [animation-delay:0ms]" />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-lime [animation-delay:150ms]" />
-                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-lime [animation-delay:300ms]" />
+                <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-line/[0.05] px-4 py-3.5">
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:0ms]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:150ms]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-accent [animation-delay:300ms]" />
                 </div>
               </div>
             )}
@@ -139,7 +139,7 @@ export default function ChatWidget() {
               e.preventDefault();
               send();
             }}
-            className="flex items-center gap-2 border-t border-white/[0.07] p-3"
+            className="flex items-center gap-2 border-t border-line/[0.07] p-3"
           >
             <input
               ref={inputRef}
@@ -155,7 +155,7 @@ export default function ChatWidget() {
               type="submit"
               disabled={loading || !input.trim()}
               aria-label="Send"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lime text-ink-950 transition-opacity disabled:opacity-30"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lime text-onlime transition-opacity disabled:opacity-30"
             >
               {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={17} strokeWidth={2.5} />}
             </button>

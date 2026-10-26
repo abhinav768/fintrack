@@ -91,7 +91,7 @@ export default function Loans() {
       />
 
       <Reveal delay={100} className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex gap-1 overflow-x-auto rounded-full border border-white/[0.07] p-1">
+        <div className="flex gap-1 overflow-x-auto rounded-full border border-line/[0.07] p-1">
           {FILTERS.map((f) => (
             <button
               key={f}
@@ -126,19 +126,19 @@ export default function Loans() {
         />
       ) : (
         <Reveal delay={160} className="card overflow-hidden">
-          <div className="hidden grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_120px_72px] gap-4 border-b border-white/[0.07] px-6 py-3 lg:grid">
+          <div className="hidden grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_120px_72px] gap-4 border-b border-line/[0.07] px-6 py-3 lg:grid">
             {["Borrower", "Principal", "Collected", "Remaining", "Progress", ""].map((h) => (
               <span key={h} className="eyebrow">{h}</span>
             ))}
           </div>
-          <div className="divide-y divide-white/[0.06]">
+          <div className="divide-y divide-line/[0.06]">
             {filtered.map((loan) => {
               const progress = loan.total_return > 0 ? (loan.total_paid / loan.total_return) * 100 : 0;
               return (
                 <Link
                   key={loan.id}
                   to={`/loans/${loan.id}`}
-                  className="group grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 transition-colors hover:bg-white/[0.03] sm:px-6 lg:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_120px_72px]"
+                  className="group grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 transition-colors hover:bg-line/[0.03] sm:px-6 lg:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_120px_72px]"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <Avatar name={loan.borrower_name} size="sm" />
@@ -153,7 +153,7 @@ export default function Loans() {
                     </div>
                   </div>
                   <span className="figure hidden text-sm text-muted lg:block">{formatCurrency(loan.principal)}</span>
-                  <span className="figure hidden text-sm text-lime lg:block">{formatCurrency(loan.total_paid)}</span>
+                  <span className="figure hidden text-sm text-accent lg:block">{formatCurrency(loan.total_paid)}</span>
                   <div className="text-right lg:text-left">
                     <span className="figure text-sm text-paper">{formatCurrency(loan.remaining)}</span>
                     <p className="text-[11px] text-faint lg:hidden">
@@ -176,7 +176,7 @@ export default function Loans() {
                     </button>
                     <ArrowUpRight
                       size={16}
-                      className="text-faint transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-lime"
+                      className="text-faint transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent"
                     />
                   </div>
                 </Link>

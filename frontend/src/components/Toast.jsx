@@ -32,7 +32,7 @@ export function ToastProvider({ children }) {
             key={t.id}
             role="status"
             className={`pointer-events-auto flex animate-rise items-center gap-3 rounded-2xl border bg-ink-800/95 px-4 py-3 text-sm text-paper shadow-2xl backdrop-blur ${
-              t.type === "ok" ? "border-lime/30 [&>svg]:text-lime" : "border-coral/40 [&>svg]:text-coral"
+              t.type === "ok" ? "border-lime/30 [&>svg]:text-accent" : "border-coral/40 [&>svg]:text-coral"
             }`}
           >
             {t.type === "ok" ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}

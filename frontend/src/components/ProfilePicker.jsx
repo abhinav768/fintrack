@@ -4,7 +4,7 @@ import { ArrowUpRight, Plus, Loader2, Trash2, LogOut, X } from "lucide-react";
 import { useAuth } from "../AuthContext";
 import { errorMessage } from "../lib/format";
 import { Wordmark } from "./Sidebar";
-import { Reveal } from "./ui";
+import { Reveal, ThemeToggle } from "./ui";
 
 export default function ProfilePicker() {
   const { user, profiles, selectProfile, createProfile, deleteProfile, logout } =
@@ -57,9 +57,12 @@ export default function ProfilePicker() {
     <div className="flex min-h-screen flex-col bg-ink-950 px-6 py-8 sm:px-12 lg:px-20">
       <header className="flex items-center justify-between">
         <Wordmark className="text-3xl" />
-        <button onClick={logout} className="link-underline text-sm text-muted">
-          <LogOut size={14} /> Sign out · {user?.username}
-        </button>
+        <div className="flex items-center gap-4">
+          <ThemeToggle />
+          <button onClick={logout} className="link-underline text-sm text-muted">
+            <LogOut size={14} /> Sign out · {user?.username}
+          </button>
+        </div>
       </header>
 
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center py-16">
@@ -74,9 +77,9 @@ export default function ProfilePicker() {
           <p className="mt-8 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">{error}</p>
         )}
 
-        <ul className="mt-14 border-t border-white/[0.08]">
+        <ul className="mt-14 border-t border-line/[0.08]">
           {profiles.map((p, idx) => (
-            <Reveal as="li" key={p.id} delay={140 + idx * 70} className="border-b border-white/[0.08]">
+            <Reveal as="li" key={p.id} delay={140 + idx * 70} className="border-b border-line/[0.08]">
               <div
                 role="button"
                 tabIndex={0}
@@ -84,10 +87,10 @@ export default function ProfilePicker() {
                 onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && handleSelect(p.id)}
                 className="group flex cursor-pointer items-center gap-6 py-6 outline-none transition-[padding] duration-500 hover:pl-4 focus-visible:pl-4"
               >
-                <span className="font-mono text-xs text-faint transition-colors group-hover:text-lime">
+                <span className="font-mono text-xs text-faint transition-colors group-hover:text-accent">
                   {String(idx + 1).padStart(2, "0")}
                 </span>
-                <span className="display min-w-0 flex-1 truncate text-4xl transition-colors duration-300 group-hover:text-lime sm:text-5xl">
+                <span className="display min-w-0 flex-1 truncate text-4xl transition-colors duration-300 group-hover:text-accent sm:text-5xl">
                   {p.name}
                 </span>
                 {profiles.length > 1 && (
@@ -100,14 +103,14 @@ export default function ProfilePicker() {
                     {deleting === p.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
                   </button>
                 )}
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/10 text-muted transition-all duration-300 group-hover:rotate-45 group-hover:border-lime group-hover:bg-lime group-hover:text-ink-950">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-line/10 text-muted transition-all duration-300 group-hover:rotate-45 group-hover:border-lime group-hover:bg-lime group-hover:text-onlime">
                   <ArrowUpRight size={20} />
                 </span>
               </div>
             </Reveal>
           ))}
 
-          <Reveal as="li" delay={140 + profiles.length * 70} className="border-b border-white/[0.08] py-6">
+          <Reveal as="li" delay={140 + profiles.length * 70} className="border-b border-line/[0.08] py-6">
             {showCreate ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <input
@@ -142,7 +145,7 @@ export default function ProfilePicker() {
                 onClick={() => setShowCreate(true)}
                 className="group flex items-center gap-3 text-muted transition-colors hover:text-paper"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-white/20 transition-colors group-hover:border-lime group-hover:text-lime">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-line/20 transition-colors group-hover:border-lime group-hover:text-accent">
                   <Plus size={16} />
                 </span>
                 Add a profile

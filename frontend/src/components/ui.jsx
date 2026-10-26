@@ -1,14 +1,27 @@
 import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { Moon, Sun, X } from "lucide-react";
 import { formatCurrency } from "../lib/format";
+import { useTheme } from "../lib/theme";
+
+export function ThemeToggle({ withLabel = false, className = "" }) {
+  const { theme, toggle } = useTheme();
+  const dark = theme === "dark";
+  const label = dark ? "Light mode" : "Dark mode";
+  return (
+    <button onClick={toggle} className={className || "btn-icon"} aria-label={label} title={label}>
+      {dark ? <Sun size={16} /> : <Moon size={16} />}
+      {withLabel && <span>{label}</span>}
+    </button>
+  );
+}
 
 const AVATAR_TONES = [
-  "bg-lime/15 text-lime",
-  "bg-[#7CC4FF]/15 text-[#7CC4FF]",
+  "bg-lime/15 text-accent",
+  "bg-sky/15 text-sky",
   "bg-coral/15 text-coral",
   "bg-amber/15 text-amber",
-  "bg-[#C9A7FF]/15 text-[#C9A7FF]",
-  "bg-white/10 text-paper",
+  "bg-violet/15 text-violet",
+  "bg-line/10 text-paper",
 ];
 
 function toneFor(name = "") {
@@ -42,10 +55,10 @@ export function Reveal({ delay = 0, as: Tag = "div", className = "", children, .
 
 export function PageHeader({ index, eyebrow, title, accent, subtitle, actions }) {
   return (
-    <Reveal className="mb-10 flex flex-col gap-6 border-b border-white/[0.07] pb-8 sm:flex-row sm:items-end sm:justify-between">
+    <Reveal className="mb-10 flex flex-col gap-6 border-b border-line/[0.07] pb-8 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <p className="eyebrow">
-          {index && <span className="text-lime">{index}</span>}
+          {index && <span className="text-accent">{index}</span>}
           {index && <span className="mx-2 text-faint">/</span>}
           {eyebrow}
         </p>
@@ -62,8 +75,8 @@ export function PageHeader({ index, eyebrow, title, accent, subtitle, actions })
 export function PageLoader() {
   return (
     <div className="flex h-72 items-center justify-center">
-      <div className="h-px w-40 overflow-hidden bg-white/10">
-        <div className="h-full w-1/3 animate-[marquee_1.2s_linear_infinite] bg-lime" />
+      <div className="h-px w-40 overflow-hidden bg-line/10">
+        <div className="h-full w-1/3 animate-[marquee_1.2s_linear_infinite] bg-accent" />
       </div>
     </div>
   );
@@ -81,9 +94,9 @@ export function EmptyState({ title, body, action }) {
 
 export function ProgressBar({ value, tone = "lime", className = "" }) {
   const pct = Math.max(0, Math.min(100, value || 0));
-  const colors = { lime: "bg-lime", coral: "bg-coral", amber: "bg-amber", muted: "bg-muted" };
+  const colors = { lime: "bg-accent", coral: "bg-coral", amber: "bg-amber", muted: "bg-muted" };
   return (
-    <div className={`h-1 overflow-hidden rounded-full bg-white/[0.07] ${className}`}>
+    <div className={`h-1 overflow-hidden rounded-full bg-line/[0.07] ${className}`}>
       <div
         className={`h-full rounded-full transition-[width] duration-1000 ease-out ${colors[tone]}`}
         style={{ width: `${pct}%` }}
@@ -108,7 +121,7 @@ export function Modal({ title, subtitle, onClose, children }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center">
       <div className="absolute inset-0" onClick={onClose} />
-      <div className="relative w-full max-w-md animate-rise rounded-t-3xl border border-white/10 bg-ink-900 p-6 pb-safe shadow-2xl sm:rounded-3xl sm:p-8">
+      <div className="relative w-full max-w-md animate-rise rounded-t-3xl border border-line/10 bg-ink-900 p-6 pb-safe shadow-2xl sm:rounded-3xl sm:p-8">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="display text-3xl">{title}</h3>
@@ -120,6 +133,27 @@ export function Modal({ title, subtitle, onClose, children }) {
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+
+export function Segmented({ options, value, onChange, className = "" }) {
+  return (
+    <div className={`flex gap-1 rounded-2xl border border-line/10 p-1 ${className}`} role="radiogroup">
+      {options.map((o) => (
+        <button
+          key={o.id}
+          type="button"
+          role="radio"
+          aria-checked={value === o.id}
+          onClick={() => onChange(o.id)}
+          className={`flex-1 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+            value === o.id ? "bg-paper text-ink-950" : "text-muted hover:text-paper"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }

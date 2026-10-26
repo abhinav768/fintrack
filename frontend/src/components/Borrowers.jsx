@@ -48,7 +48,7 @@ function BorrowerCard({ borrower, onChanged, delay }) {
             <button onClick={() => setEditing(false)} className="btn-icon" aria-label="Cancel">
               <X size={16} />
             </button>
-            <button onClick={save} className="flex h-9 w-9 items-center justify-center rounded-full bg-lime text-ink-950" aria-label="Save">
+            <button onClick={save} className="flex h-9 w-9 items-center justify-center rounded-full bg-lime text-onlime" aria-label="Save">
               <Check size={16} />
             </button>
           </div>
@@ -74,11 +74,11 @@ function BorrowerCard({ borrower, onChanged, delay }) {
       )}
       <Link
         to={`/borrowers/${borrower.id}`}
-        className="mt-6 flex items-end justify-between border-t border-white/[0.06] pt-4"
+        className="mt-6 flex items-end justify-between border-t border-line/[0.06] pt-4"
       >
         <div className="flex gap-6">
           <div>
-            <p className="figure text-2xl text-lime">{borrower.active_loans}</p>
+            <p className="figure text-2xl text-accent">{borrower.active_loans}</p>
             <p className="eyebrow mt-1">Active</p>
           </div>
           <div>
@@ -88,7 +88,7 @@ function BorrowerCard({ borrower, onChanged, delay }) {
         </div>
         <ArrowUpRight
           size={18}
-          className="text-faint transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-lime"
+          className="text-faint transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent"
         />
       </Link>
     </Reveal>

@@ -3,8 +3,48 @@
 @tailwind utilities;
 
 @layer base {
-  html {
+  :root {
+    color-scheme: light;
+    --ink-950: 244 241 234;
+    --ink-900: 251 250 246;
+    --ink-850: 238 234 225;
+    --ink-800: 255 255 255;
+    --ink-700: 214 209 196;
+    --ink-600: 189 182 166;
+    --paper: 22 21 15;
+    --muted: 104 101 92;
+    --faint: 150 146 135;
+    --line: 22 21 15;
+    --lime: 200 240 46;
+    --lime-soft: 214 248 92;
+    --accent: 77 107 0;
+    --onlime: 17 18 10;
+    --coral: 214 72 43;
+    --amber: 176 116 22;
+    --sky: 30 110 180;
+    --violet: 118 76 196;
+    --grain: 0.06;
+  }
+  .dark {
     color-scheme: dark;
+    --ink-950: 10 10 11;
+    --ink-900: 17 17 19;
+    --ink-850: 22 22 24;
+    --ink-800: 28 28 31;
+    --ink-700: 42 42 46;
+    --ink-600: 58 58 63;
+    --paper: 237 235 228;
+    --muted: 142 140 133;
+    --faint: 94 93 89;
+    --line: 255 255 255;
+    --lime: 212 255 58;
+    --lime-soft: 227 255 122;
+    --accent: 212 255 58;
+    --coral: 255 122 89;
+    --amber: 242 179 61;
+    --sky: 124 196 255;
+    --violet: 201 167 255;
+    --grain: 0.045;
   }
   body {
     @apply bg-ink-950 text-paper;
@@ -16,13 +56,13 @@
     inset: 0;
     z-index: 100;
     pointer-events: none;
-    opacity: 0.045;
+    opacity: var(--grain);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
   ::selection {
-    @apply bg-lime text-ink-950;
+    @apply bg-lime text-onlime;
   }
-  input[type="date"]::-webkit-calendar-picker-indicator {
+  .dark input[type="date"]::-webkit-calendar-picker-indicator {
     filter: invert(0.8);
   }
   input[type="number"]::-webkit-inner-spin-button {
@@ -40,10 +80,10 @@
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-white/[0.07] bg-ink-900;
+    @apply rounded-2xl border border-line/[0.07] bg-ink-900;
   }
   .card-hover {
-    @apply transition-colors duration-300 hover:border-white/[0.16] hover:bg-ink-850;
+    @apply transition-colors duration-300 hover:border-line/[0.16] hover:bg-ink-850;
   }
   .eyebrow {
     @apply font-mono text-[11px] uppercase tracking-[0.18em] text-muted;
@@ -58,19 +98,19 @@
     @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40;
   }
   .btn-primary {
-    @apply btn bg-lime text-ink-950 hover:bg-lime-soft active:scale-[0.98];
+    @apply btn bg-lime text-onlime hover:bg-lime-soft active:scale-[0.98];
   }
   .btn-ghost {
-    @apply btn border border-white/10 text-paper hover:border-white/25 hover:bg-white/[0.04];
+    @apply btn border border-line/10 text-paper hover:border-line/25 hover:bg-line/[0.04];
   }
   .btn-danger {
     @apply btn border border-coral/30 text-coral hover:bg-coral/10;
   }
   .btn-icon {
-    @apply inline-flex items-center justify-center rounded-full p-2 text-muted transition-colors hover:bg-white/[0.06] hover:text-paper;
+    @apply inline-flex items-center justify-center rounded-full p-2 text-muted transition-colors hover:bg-line/[0.06] hover:text-paper;
   }
   .input {
-    @apply w-full rounded-xl border border-white/10 bg-ink-850 px-4 py-3 text-sm text-paper outline-none transition placeholder:text-faint focus:border-lime/50 focus:ring-4 focus:ring-lime/10;
+    @apply w-full rounded-xl border border-line/10 bg-ink-850 px-4 py-3 text-sm text-paper outline-none transition placeholder:text-faint focus:border-lime/50 focus:ring-4 focus:ring-lime/10;
   }
   .label {
     @apply eyebrow mb-2 block;
@@ -79,7 +119,7 @@
     @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium;
   }
   .chip-lime {
-    @apply chip bg-lime/10 text-lime;
+    @apply chip bg-lime/10 text-accent;
   }
   .chip-coral {
     @apply chip bg-coral/10 text-coral;
@@ -88,10 +128,10 @@
     @apply chip bg-amber/10 text-amber;
   }
   .chip-muted {
-    @apply chip bg-white/[0.06] text-muted;
+    @apply chip bg-line/[0.06] text-muted;
   }
   .row-link {
-    @apply flex items-center justify-between gap-4 px-5 py-4 transition-colors duration-200 hover:bg-white/[0.03] sm:px-6;
+    @apply flex items-center justify-between gap-4 px-5 py-4 transition-colors duration-200 hover:bg-line/[0.03] sm:px-6;
   }
   .link-underline {
     @apply relative inline-flex items-center gap-1 text-paper after:absolute after:-bottom-0.5 after:left-0 after:h-px after:w-full after:origin-right after:scale-x-0 after:bg-lime after:transition-transform after:duration-300 hover:after:origin-left hover:after:scale-x-100;

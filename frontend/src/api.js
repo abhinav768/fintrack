@@ -92,6 +92,9 @@ export const updatePayment = (id, data) =>
 export const getOverdue = () => api.get("/overdue").then((r) => r.data);
 export const generateNotifySecret = () =>
   api.post("/settings/notifications/generate-secret").then((r) => r.data);
+export const getTransfers = () => api.get("/transfers").then((r) => r.data);
+export const createTransfer = (data) => api.post("/transfers", data).then((r) => r.data);
+export const deleteTransfer = (id) => api.delete(`/transfers/${id}`).then((r) => r.data);
 
 export const downloadExport = async (kind) => {
   const res = await api.get(`/export/${kind}.csv`, { responseType: "blob" });

@@ -16,14 +16,15 @@ import {
   todayISO,
   errorMessage,
 } from "../lib/format";
+import { FUNDING_SOURCES, PAYMENT_METHODS, fundingLabel } from "../lib/money";
 import { useToast } from "./Toast";
-import { Avatar, EmptyState, LoanStatusChip, Modal, PageLoader, ProgressBar, Reveal } from "./ui";
+import { Avatar, EmptyState, LoanStatusChip, Modal, PageLoader, ProgressBar, Reveal, Segmented } from "./ui";
 
 function monthTone(month) {
   if (month.status === "paid") return { dot: "bg-lime border-lime", chip: <span className="chip-lime">Paid</span> };
   if (month.overdue) return { dot: "bg-coral border-coral", chip: <span className="chip-coral">Overdue</span> };
   if (month.status === "partial") return { dot: "bg-amber border-amber", chip: <span className="chip-amber">Partial</span> };
-  return { dot: "bg-ink-950 border-white/25", chip: null };
+  return { dot: "bg-ink-950 border-line/25", chip: null };
 }
 
 function PaymentModal({ loanId, month, onClose, onSaved }) {
@@ -32,6 +33,7 @@ function PaymentModal({ loanId, month, onClose, onSaved }) {
   const [amount, setAmount] = useState(String(month.expected_amount));
   const [date, setDate] = useState(month.payment_date || todayISO());
   const [notes, setNotes] = useState(month.notes || "");
+  const [method, setMethod] = useState(month.method || "online");
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async () => {
@@ -42,7 +44,7 @@ function PaymentModal({ loanId, month, onClose, onSaved }) {
     }
     setSubmitting(true);
     try {
-      const body = { amount: value, payment_date: date, notes: notes || null };
+      const body = { amount: value, payment_date: date, notes: notes || null, method };
       if (editing) await updatePayment(month.payment_id, body);
       else await addPayment(loanId, { ...body, month_number: month.month_number });
       toast.success(editing ? "Payment updated" : "Payment recorded");
@@ -68,7 +70,7 @@ function PaymentModal({ loanId, month, onClose, onSaved }) {
         )}
         <div>
           <label className="label">Amount received</label>
-          <div className="flex items-baseline gap-2 border-b border-white/10 pb-2 focus-within:border-lime/60">
+          <div className="flex items-baseline gap-2 border-b border-line/10 pb-2 focus-within:border-lime/60">
             <span className="font-display text-3xl text-muted">₹</span>
             <input
               type="number"
@@ -82,6 +84,10 @@ function PaymentModal({ loanId, month, onClose, onSaved }) {
           </div>
           <p className="mt-2 text-xs text-muted">Less than the EMI is saved as a partial payment.</p>
         </div>
+        <div>
+          <label className="label">Received as</label>
+          <Segmented options={PAYMENT_METHODS} value={method} onChange={setMethod} />
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="label">Date</label>
@@ -94,7 +100,7 @@ function PaymentModal({ loanId, month, onClose, onSaved }) {
               maxLength={500}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. UPI"
+              placeholder="Optional"
               className="input"
             />
           </div>
@@ -120,6 +126,7 @@ function EditLoanModal({ loan, onClose, onSaved }) {
   const [rate, setRate] = useState(String(loan.monthly_rate));
   const [months, setMonths] = useState(String(loan.total_months));
   const [loanDate, setLoanDate] = useState(loan.loan_date);
+  const [source, setSource] = useState(loan.funding_source);
   const [submitting, setSubmitting] = useState(false);
   const locked = loan.has_payments;
 
@@ -128,7 +135,7 @@ function EditLoanModal({ loan, onClose, onSaved }) {
   }, [toast]);
 
   const submit = async () => {
-    const body = { borrower_id: parseInt(borrowerId) };
+    const body = { borrower_id: parseInt(borrowerId), funding_source: source };
     if (!locked) {
       Object.assign(body, {
         principal: parseFloat(principal),
@@ -162,8 +169,18 @@ function EditLoanModal({ loan, onClose, onSaved }) {
             ))}
           </select>
         </div>
+        <div>
+          <label className="label">Money from</label>
+          <select value={source} onChange={(e) => setSource(e.target.value)} className="input">
+            {FUNDING_SOURCES.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </div>
         {locked ? (
-          <p className="rounded-xl bg-white/[0.04] px-4 py-3 text-xs text-muted">
+          <p className="rounded-xl bg-line/[0.04] px-4 py-3 text-xs text-muted">
             Amount, rate, tenure and date are locked because payments have been recorded.
           </p>
         ) : (
@@ -249,16 +266,16 @@ export default function LoanDetail() {
         <ArrowLeft size={15} /> Back
       </button>
 
-      <Reveal className="flex flex-col gap-6 border-b border-white/[0.07] pb-10 lg:flex-row lg:items-end lg:justify-between">
+      <Reveal className="flex flex-col gap-6 border-b border-line/[0.07] pb-10 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex items-center gap-5">
           <Avatar name={loan.borrower_name} size="lg" />
           <div>
             <p className="eyebrow">
-              Loan #{loan.id} · {formatFullDate(loan.loan_date)}
+              Loan #{loan.id} · {formatFullDate(loan.loan_date)} · from {fundingLabel(loan.funding_source)}
             </p>
             <Link
               to={`/borrowers/${loan.borrower_id}`}
-              className="display mt-2 block text-5xl transition-colors hover:text-lime sm:text-6xl"
+              className="display mt-2 block text-5xl transition-colors hover:text-accent sm:text-6xl"
             >
               {loan.borrower_name}
             </Link>
@@ -272,11 +289,11 @@ export default function LoanDetail() {
         </div>
       </Reveal>
 
-      <Reveal delay={80} className="grid grid-cols-2 border-b border-white/[0.07] lg:grid-cols-4">
+      <Reveal delay={80} className="grid grid-cols-2 border-b border-line/[0.07] lg:grid-cols-4">
         {facts.map(([label, value], i) => (
           <div
             key={label}
-            className={`py-6 ${i % 2 ? "pl-5" : "pr-5"} ${i > 0 ? "lg:border-l lg:border-white/[0.07] lg:pl-6" : ""} ${i % 2 ? "border-l border-white/[0.07]" : ""}`}
+            className={`py-6 ${i % 2 ? "pl-5" : "pr-5"} ${i > 0 ? "lg:border-l lg:border-line/[0.07] lg:pl-6" : ""} ${i % 2 ? "border-l border-line/[0.07]" : ""}`}
           >
             <p className="eyebrow">{label}</p>
             <p className="figure mt-3 text-xl text-paper sm:text-2xl">{value}</p>
@@ -293,7 +310,7 @@ export default function LoanDetail() {
               <em className="text-2xl text-muted">of {formatCurrency(loan.total_return)}</em>
             </p>
           </div>
-          <span className="display text-4xl text-lime">{Math.round(progress)}%</span>
+          <span className="display text-4xl text-accent">{Math.round(progress)}%</span>
         </div>
         <ProgressBar value={progress} />
       </Reveal>
@@ -308,18 +325,18 @@ export default function LoanDetail() {
           </p>
         </div>
 
-        <ol className="relative border-t border-white/[0.06]">
+        <ol className="relative border-t border-line/[0.06]">
           {loan.schedule.map((month, idx) => {
             const tone = monthTone(month);
             const last = idx === loan.schedule.length - 1;
             return (
-              <li key={month.month_number} className="group relative flex gap-4 px-5 py-5 transition-colors hover:bg-white/[0.02] sm:px-6">
+              <li key={month.month_number} className="group relative flex gap-4 px-5 py-5 transition-colors hover:bg-line/[0.02] sm:px-6">
                 <div className="relative flex w-8 shrink-0 flex-col items-center">
                   <span className="font-mono text-[11px] text-faint">{String(month.month_number).padStart(2, "0")}</span>
                   <span className={`mt-2 flex h-3 w-3 items-center justify-center rounded-full border-2 ${tone.dot}`}>
-                    {month.status === "paid" && <Check size={8} strokeWidth={4} className="text-ink-950" />}
+                    {month.status === "paid" && <Check size={8} strokeWidth={4} className="text-onlime" />}
                   </span>
-                  {!last && <span className="absolute top-10 h-[calc(100%-1rem)] w-px bg-white/[0.08]" />}
+                  {!last && <span className="absolute top-10 h-[calc(100%-1rem)] w-px bg-line/[0.08]" />}
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
@@ -338,10 +355,12 @@ export default function LoanDetail() {
                   <div className="flex items-center gap-2">
                     {month.payment_id && (
                       <div className="mr-1 text-right">
-                        <p className={`figure text-sm ${month.status === "paid" ? "text-lime" : "text-amber"}`}>
+                        <p className={`figure text-sm ${month.status === "paid" ? "text-accent" : "text-amber"}`}>
                           {formatCurrency(month.paid_amount)}
                         </p>
-                        <p className="text-[11px] text-faint">{formatFullDate(month.payment_date)}</p>
+                        <p className="text-[11px] text-faint">
+                          {month.method === "cash" ? "Cash" : "UPI"} · {formatFullDate(month.payment_date)}
+                        </p>
                       </div>
                     )}
                     {month.payment_id ? (
@@ -366,7 +385,7 @@ export default function LoanDetail() {
                         <button
                           onClick={() => setPayMonth(month)}
                           className={`btn px-4 py-2 text-xs ${
-                            month.overdue ? "bg-coral text-ink-950 hover:bg-coral/90" : "border border-white/10 text-paper hover:border-lime hover:bg-lime hover:text-ink-950"
+                            month.overdue ? "bg-coral text-onlime hover:bg-coral/90" : "border border-line/10 text-paper hover:border-lime hover:bg-lime hover:text-onlime"
                           }`}
                         >
                           <Plus size={14} /> Record

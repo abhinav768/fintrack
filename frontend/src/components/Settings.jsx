@@ -14,9 +14,9 @@ import { PageHeader, Reveal } from "./ui";
 
 function Section({ index, title, body, children, delay }) {
   return (
-    <Reveal delay={delay} className="grid gap-6 border-b border-white/[0.07] py-10 lg:grid-cols-[280px_1fr] lg:gap-12">
+    <Reveal delay={delay} className="grid gap-6 border-b border-line/[0.07] py-10 lg:grid-cols-[280px_1fr] lg:gap-12">
       <div>
-        <p className="font-mono text-[11px] text-lime">{index}</p>
+        <p className="font-mono text-[11px] text-accent">{index}</p>
         <h2 className="display mt-2 text-3xl">{title}</h2>
         {body && <p className="mt-3 text-sm leading-relaxed text-muted">{body}</p>}
       </div>
