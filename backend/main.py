@@ -3,8 +3,6 @@ import time
 import logging
 import httpx
 from fastapi import FastAPI, Depends, HTTPException, Query, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from dateutil.relativedelta import relativedelta
@@ -17,6 +15,7 @@ logger.setLevel(logging.INFO)
 from database import engine, get_db, Base
 from auth import hash_password, verify_password, create_access_token, get_current_user
 from splunk_handler import setup_splunk_logging
+from frontend_static import register_frontend
 import models
 import schemas
 
@@ -1015,15 +1014,4 @@ def chat(
 
 # ── Static frontend ───────────────────────────────────────────────────────────
 
-static_dir = os.path.join(os.path.dirname(__file__), "static")
-if os.path.isdir(static_dir):
-    assets_dir = os.path.join(static_dir, "assets")
-    if os.path.isdir(assets_dir):
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-
-    @app.get("/{full_path:path}")
-    def serve_frontend(full_path: str):
-        file_path = os.path.join(static_dir, full_path)
-        if os.path.isfile(file_path):
-            return FileResponse(file_path)
-        return FileResponse(os.path.join(static_dir, "index.html"))
+register_frontend(app, os.path.join(os.path.dirname(__file__), "static"))
