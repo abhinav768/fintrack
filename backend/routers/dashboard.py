@@ -8,15 +8,14 @@ import models
 import schemas
 from auth import get_current_user
 from database import get_db
-from deps import get_config, profile_loans_query, require_profile, set_config
+from deps import profile_loans_query, require_profile
 from routers.loans import loans_with_details
 from services import timeutil
+from services.balance import compute_balance, set_opening_balance
 from services.money import to_money
 from services.schedule import build_schedule
 
 router = APIRouter(prefix="/api")
-
-INITIAL_BALANCE = 53600.0
 
 
 def _total_collected(db: Session, profile_id: int) -> Decimal:
@@ -58,16 +57,7 @@ def get_balance(
     db: Session = Depends(get_db),
 ):
     profile = require_profile(profile_id, user, db)
-    base = to_money(get_config(db, "base_balance", profile.id, str(INITIAL_BALANCE)))
-    snapshot = to_money(get_config(db, "collections_snapshot", profile.id, "0"))
-    total_collected = _total_collected(db, profile.id)
-    new_collections = total_collected - snapshot
-    return {
-        "base_balance": base,
-        "new_collections": new_collections,
-        "current_balance": base + new_collections,
-        "total_collected": total_collected,
-    }
+    return compute_balance(db, profile.id)
 
 
 @router.put("/balance")
@@ -78,11 +68,9 @@ def update_base_balance(
     db: Session = Depends(get_db),
 ):
     profile = require_profile(profile_id, user, db)
-    total_collected = _total_collected(db, profile.id)
-    set_config(db, "base_balance", profile.id, str(data.base_balance))
-    set_config(db, "collections_snapshot", profile.id, str(total_collected))
+    set_opening_balance(db, profile.id, data.base_balance)
     db.commit()
-    return {"base_balance": data.base_balance, "snapshot": total_collected}
+    return compute_balance(db, profile.id)
 
 
 @router.get("/monthly-collection")

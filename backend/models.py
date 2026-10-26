@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Numeric, Date, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
-from datetime import datetime, timezone
+from services.timeutil import utcnow_naive
 
 from database import Base
 
@@ -11,7 +11,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=utcnow_naive)
 
     profiles = relationship("Profile", back_populates="user", cascade="all, delete-orphan")
 
@@ -22,7 +22,7 @@ class Profile(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False, default="My Portfolio")
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=utcnow_naive)
 
     user = relationship("User", back_populates="profiles")
     borrowers = relationship("Borrower", back_populates="profile", cascade="all, delete-orphan")
@@ -35,7 +35,7 @@ class Borrower(Base):
     profile_id = Column(Integer, ForeignKey("profiles.id"), nullable=False)
     name = Column(String, nullable=False)
     phone = Column(String, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=utcnow_naive)
 
     profile = relationship("Profile", back_populates="borrowers")
     loans = relationship("Loan", back_populates="borrower", cascade="all, delete-orphan")
@@ -54,7 +54,7 @@ class Loan(Base):
     loan_date = Column(Date, nullable=False)
     cycle_start_date = Column(Date, nullable=False)
     status = Column(String, default="active")
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=utcnow_naive)
 
     borrower = relationship("Borrower", back_populates="loans")
     payments = relationship(
@@ -73,7 +73,7 @@ class Payment(Base):
     month_number = Column(Integer, nullable=False)
     payment_date = Column(Date, nullable=False)
     notes = Column(String, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=utcnow_naive)
 
     loan = relationship("Loan", back_populates="payments")
 
