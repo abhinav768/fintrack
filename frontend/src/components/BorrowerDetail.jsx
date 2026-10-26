@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Phone, AlertTriangle, ArrowRight } from "lucide-react";
+import { ArrowLeft, Phone, ArrowUpRight } from "lucide-react";
 import { getBorrower } from "../api";
 import { formatCurrency, formatFullDate, errorMessage } from "../lib/format";
 import { useToast } from "./Toast";
+import { Avatar, EmptyState, LoanStatusChip, PageLoader, ProgressBar, Reveal } from "./ui";
 
 export default function BorrowerDetail() {
   const { id } = useParams();
@@ -19,95 +20,90 @@ export default function BorrowerDetail() {
       .finally(() => setLoading(false));
   }, [id, toast]);
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-      </div>
-    );
-  }
-  if (!borrower) return <div className="py-20 text-center text-slate-500">Borrower not found</div>;
+  if (loading) return <PageLoader />;
+  if (!borrower) return <EmptyState title="Borrower not found" body="They may have been deleted." />;
 
   const { totals } = borrower;
-  const cards = [
-    { label: "Lent", value: formatCurrency(totals.lent), tone: "bg-blue-50 text-blue-700" },
-    { label: "Collected", value: formatCurrency(totals.collected), tone: "bg-emerald-50 text-emerald-700" },
-    { label: "Outstanding", value: formatCurrency(totals.outstanding), tone: "bg-amber-50 text-amber-700" },
-    { label: "Overdue EMIs", value: totals.overdue_count, tone: totals.overdue_count ? "bg-red-50 text-red-700" : "bg-slate-50 text-slate-600" },
+  const facts = [
+    { label: "Lent", value: formatCurrency(totals.lent) },
+    { label: "Collected", value: formatCurrency(totals.collected), tone: "text-lime" },
+    { label: "Outstanding", value: formatCurrency(totals.outstanding) },
+    { label: "Overdue EMIs", value: totals.overdue_count, tone: totals.overdue_count ? "text-coral" : "" },
   ];
 
   return (
     <div>
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-6 flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-800"
-      >
-        <ArrowLeft size={16} /> Back
+      <button onClick={() => navigate(-1)} className="link-underline mb-10 text-sm text-muted">
+        <ArrowLeft size={15} /> Back
       </button>
 
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-xl font-bold text-emerald-700">
-            {borrower.name.charAt(0).toUpperCase()}
-          </div>
+      <Reveal className="flex flex-col gap-5 border-b border-white/[0.07] pb-10 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex items-center gap-5">
+          <Avatar name={borrower.name} size="lg" />
           <div>
-            <h2 className="text-xl font-bold text-slate-800">{borrower.name}</h2>
-            {borrower.phone && (
-              <a href={`tel:${borrower.phone}`} className="mt-0.5 flex items-center gap-1 text-sm text-slate-500 hover:text-emerald-700">
-                <Phone size={13} /> {borrower.phone}
-              </a>
-            )}
+            <p className="eyebrow">Borrower</p>
+            <h1 className="display mt-2 text-5xl sm:text-6xl">{borrower.name}</h1>
           </div>
         </div>
-        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {cards.map((c) => (
-            <div key={c.label} className={`rounded-lg p-3.5 ${c.tone}`}>
-              <p className="text-xs font-medium opacity-80">{c.label}</p>
-              <p className="mt-1 text-lg font-bold">{c.value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+        {borrower.phone && (
+          <a href={`tel:${borrower.phone}`} className="btn-ghost self-start sm:self-auto">
+            <Phone size={14} /> {borrower.phone}
+          </a>
+        )}
+      </Reveal>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-6 py-4">
-          <h3 className="text-base font-semibold text-slate-800">Loans ({borrower.loans.length})</h3>
+      <Reveal delay={80} className="mb-10 grid grid-cols-2 border-b border-white/[0.07] lg:grid-cols-4">
+        {facts.map((f, i) => (
+          <div
+            key={f.label}
+            className={`py-6 ${i % 2 ? "border-l border-white/[0.07] pl-5" : "pr-5"} ${i > 0 ? "lg:border-l lg:border-white/[0.07] lg:pl-6" : ""}`}
+          >
+            <p className="eyebrow">{f.label}</p>
+            <p className={`figure mt-3 text-xl sm:text-2xl ${f.tone || "text-paper"}`}>{f.value}</p>
+          </div>
+        ))}
+      </Reveal>
+
+      <Reveal delay={140} className="card overflow-hidden">
+        <div className="px-5 pb-5 pt-6 sm:px-6">
+          <h3 className="display text-3xl">
+            Loans <em className="text-muted">({borrower.loans.length})</em>
+          </h3>
         </div>
         {borrower.loans.length === 0 ? (
-          <p className="px-6 py-10 text-center text-sm text-slate-400">No loans for this borrower yet.</p>
+          <p className="border-t border-white/[0.06] px-6 py-10 text-sm text-muted">No loans for this borrower yet.</p>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {borrower.loans.map((loan) => (
-              <Link
-                key={loan.id}
-                to={`/loans/${loan.id}`}
-                className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/80"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">
-                    {formatCurrency(loan.principal)} · {loan.total_months} months
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    Given {formatFullDate(loan.loan_date)} · {loan.months_paid}/{loan.total_months} paid
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {loan.overdue_count > 0 && (
-                    <span className="flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
-                      <AlertTriangle size={11} /> {loan.overdue_count}
-                    </span>
-                  )}
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${loan.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-                    {loan.status}
-                  </span>
-                  <span className="text-sm font-semibold text-slate-700">{formatCurrency(loan.remaining)}</span>
-                  <ArrowRight size={14} className="text-slate-300" />
-                </div>
-              </Link>
-            ))}
+          <div className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
+            {borrower.loans.map((loan) => {
+              const progress = loan.total_return > 0 ? (loan.total_paid / loan.total_return) * 100 : 0;
+              return (
+                <Link key={loan.id} to={`/loans/${loan.id}`} className="row-link group">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="figure text-sm text-paper">{formatCurrency(loan.principal)}</p>
+                      <LoanStatusChip status={loan.status} overdueCount={loan.overdue_count} />
+                    </div>
+                    <p className="mt-1 text-xs text-muted">
+                      Given {formatFullDate(loan.loan_date)} · {loan.months_paid}/{loan.total_months} paid
+                    </p>
+                    <ProgressBar value={progress} tone={loan.overdue_count ? "coral" : "lime"} className="mt-3 max-w-xs" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="figure text-sm text-paper">{formatCurrency(loan.remaining)}</p>
+                      <p className="text-[11px] text-faint">remaining</p>
+                    </div>
+                    <ArrowUpRight
+                      size={16}
+                      className="text-faint transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-lime"
+                    />
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         )}
-      </div>
+      </Reveal>
     </div>
   );
 }

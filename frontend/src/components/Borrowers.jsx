@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { User, Phone, Trash2, PlusCircle, Search, Pencil, Check, X } from "lucide-react";
+import { Trash2, Plus, Search, Pencil, Check, X, ArrowUpRight } from "lucide-react";
 import { getBorrowers, createBorrower, deleteBorrower, updateBorrower } from "../api";
 import { errorMessage } from "../lib/format";
 import { useToast } from "./Toast";
+import { Avatar, EmptyState, PageHeader, PageLoader, Reveal } from "./ui";
 
-const inputClass =
-  "w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100";
-
-function BorrowerCard({ borrower, onChanged }) {
+function BorrowerCard({ borrower, onChanged, delay }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(borrower.name);
@@ -41,50 +39,59 @@ function BorrowerCard({ borrower, onChanged }) {
   };
 
   return (
-    <div className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
+    <Reveal delay={delay} className="card card-hover group flex flex-col p-5">
       {editing ? (
         <div className="space-y-2">
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} className={inputClass.replace("pl-10", "pl-3")} />
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20} placeholder="Phone" className={inputClass.replace("pl-10", "pl-3")} />
-          <div className="flex justify-end gap-2">
-            <button onClick={() => setEditing(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Cancel">
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} className="input py-2.5" autoFocus />
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={20} placeholder="Phone" className="input py-2.5" />
+          <div className="flex justify-end gap-1 pt-1">
+            <button onClick={() => setEditing(false)} className="btn-icon" aria-label="Cancel">
               <X size={16} />
             </button>
-            <button onClick={save} className="rounded-lg bg-emerald-600 p-2 text-white hover:bg-emerald-700" aria-label="Save">
+            <button onClick={save} className="flex h-9 w-9 items-center justify-center rounded-full bg-lime text-ink-950" aria-label="Save">
               <Check size={16} />
             </button>
           </div>
         </div>
       ) : (
-        <div className="flex items-start justify-between">
-          <Link to={`/borrowers/${borrower.id}`} className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-100 text-base font-bold text-emerald-700">
-              {borrower.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h3 className="font-semibold text-slate-800 hover:text-emerald-700">{borrower.name}</h3>
-              {borrower.phone && <p className="mt-0.5 text-xs text-slate-400">{borrower.phone}</p>}
+        <div className="flex items-start justify-between gap-2">
+          <Link to={`/borrowers/${borrower.id}`} className="flex min-w-0 items-center gap-3">
+            <Avatar name={borrower.name} />
+            <div className="min-w-0">
+              <h3 className="truncate text-[15px] text-paper">{borrower.name}</h3>
+              <p className="mt-0.5 font-mono text-xs text-faint">{borrower.phone || "No phone"}</p>
             </div>
           </Link>
-          <div className="flex gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-            <button onClick={() => setEditing(true)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600" title="Edit borrower">
+          <div className="flex gap-0.5 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+            <button onClick={() => setEditing(true)} className="btn-icon" title="Edit borrower">
               <Pencil size={14} />
             </button>
-            <button onClick={remove} className="rounded-lg p-2 text-slate-300 hover:bg-red-50 hover:text-red-500" title="Delete borrower">
+            <button onClick={remove} className="btn-icon text-faint hover:text-coral" title="Delete borrower">
               <Trash2 size={14} />
             </button>
           </div>
         </div>
       )}
-      <div className="mt-4 flex items-center gap-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
-        <span>
-          <span className="font-semibold text-emerald-600">{borrower.active_loans}</span> active
-        </span>
-        <span>
-          <span className="font-semibold text-slate-600">{borrower.total_loans}</span> total loans
-        </span>
-      </div>
-    </div>
+      <Link
+        to={`/borrowers/${borrower.id}`}
+        className="mt-6 flex items-end justify-between border-t border-white/[0.06] pt-4"
+      >
+        <div className="flex gap-6">
+          <div>
+            <p className="figure text-2xl text-lime">{borrower.active_loans}</p>
+            <p className="eyebrow mt-1">Active</p>
+          </div>
+          <div>
+            <p className="figure text-2xl text-paper">{borrower.total_loans}</p>
+            <p className="eyebrow mt-1">Total</p>
+          </div>
+        </div>
+        <ArrowUpRight
+          size={18}
+          className="text-faint transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-lime"
+        />
+      </Link>
+    </Reveal>
   );
 }
 
@@ -131,69 +138,55 @@ export default function Borrowers() {
     (b) => !q || b.name.toLowerCase().includes(q) || (b.phone || "").includes(q)
   );
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-      </div>
-    );
-  }
+  if (loading) return <PageLoader />;
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">Borrowers</h2>
-          <p className="mt-1 text-sm text-slate-500">{borrowers.length} registered borrowers</p>
-        </div>
-        <button
-          onClick={() => setShowAdd(!showAdd)}
-          className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
-        >
-          <PlusCircle size={16} /> Add Borrower
-        </button>
-      </div>
+      <PageHeader
+        index="04"
+        eyebrow="People"
+        title="Your"
+        accent="borrowers"
+        subtitle={`${borrowers.length} people in your book.`}
+        actions={
+          <button onClick={() => setShowAdd(!showAdd)} className={showAdd ? "btn-ghost" : "btn-primary"}>
+            {showAdd ? <X size={16} /> : <Plus size={16} />} {showAdd ? "Close" : "Add borrower"}
+          </button>
+        }
+      />
 
       {showAdd && (
-        <form onSubmit={handleAdd} className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative flex-1">
-              <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" placeholder="Name" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
-            </div>
-            <div className="relative flex-1">
-              <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" placeholder="Phone (optional)" maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} />
-            </div>
-            <button type="submit" className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700">
-              Add
-            </button>
-          </div>
+        <form onSubmit={handleAdd} className="card mb-6 flex animate-rise flex-col gap-3 p-4 sm:flex-row">
+          <input type="text" placeholder="Full name" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} className="input flex-1" autoFocus />
+          <input type="tel" placeholder="Phone (optional)" maxLength={20} value={phone} onChange={(e) => setPhone(e.target.value)} className="input flex-1" />
+          <button type="submit" className="btn-primary">
+            Add
+          </button>
         </form>
       )}
 
       {borrowers.length > 0 && (
-        <div className="relative mb-5">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Reveal delay={80} className="relative mb-6 max-w-md">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-faint" />
           <input
             type="text"
-            placeholder="Search by name or phone..."
+            placeholder="Search name or phone…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className={inputClass}
+            className="input rounded-full pl-11"
           />
-        </div>
+        </Reveal>
       )}
 
       {visible.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white px-5 py-16 text-center shadow-sm">
-          <User size={40} className="mx-auto mb-3 text-slate-300" />
-          <p className="text-slate-500">{borrowers.length === 0 ? "No borrowers yet" : "No borrowers match your search"}</p>
-        </div>
+        <EmptyState
+          title={borrowers.length === 0 ? "No borrowers yet" : "No match"}
+          body={borrowers.length === 0 ? "Add someone, or create a loan and add them there." : "Try a different name or number."}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((b) => (
-            <BorrowerCard key={b.id} borrower={b} onChanged={fetchBorrowers} />
+          {visible.map((b, i) => (
+            <BorrowerCard key={b.id} borrower={b} onChanged={fetchBorrowers} delay={120 + Math.min(i, 8) * 50} />
           ))}
         </div>
       )}

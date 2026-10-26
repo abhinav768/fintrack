@@ -1,135 +1,159 @@
-import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import {
-  LayoutDashboard,
+  LayoutGrid,
   HandCoins,
-  PlusCircle,
+  Plus,
   Users,
-  IndianRupee,
-  Menu,
-  X,
   Settings,
   LogOut,
   ArrowLeftRight,
+  MoreHorizontal,
 } from "lucide-react";
 import { useAuth } from "../AuthContext";
 
 const links = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/loans", icon: HandCoins, label: "All Loans" },
-  { to: "/add-loan", icon: PlusCircle, label: "New Loan" },
+  { to: "/", icon: LayoutGrid, label: "Overview" },
+  { to: "/loans", icon: HandCoins, label: "Loans" },
+  { to: "/add-loan", icon: Plus, label: "New loan" },
   { to: "/borrowers", icon: Users, label: "Borrowers" },
   { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
+export function Wordmark({ className = "" }) {
+  return (
+    <span className={`display select-none ${className}`}>
+      Fin<em className="text-lime">track</em>
+    </span>
+  );
+}
+
 export default function Sidebar() {
-  const [open, setOpen] = useState(false);
-  const location = useLocation();
   const navigate = useNavigate();
   const { profile, logout, clearProfile } = useAuth();
-
-  useEffect(() => {
-    setOpen(false);
-  }, [location.pathname]);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleSwitchProfile = () => {
+    setMenuOpen(false);
     clearProfile();
     navigate("/profiles");
   };
 
-  const navContent = (
-    <>
-      <div className="flex items-center gap-3 px-6 py-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/20">
-          <IndianRupee size={22} />
-        </div>
-        <div>
-          <h1 className="text-lg font-bold text-white">FinTrack</h1>
-          <p className="max-w-[140px] truncate text-xs text-slate-400" title={profile?.name}>
-            {profile?.name || "Loan Manager"}
-          </p>
-        </div>
-      </div>
-
-      <nav className="mt-2 flex-1 space-y-1 px-3">
-        {links.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === "/"}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                isActive
-                  ? "bg-emerald-500/15 text-emerald-400 shadow-sm shadow-emerald-500/10"
-                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
-              }`
-            }
-          >
-            <Icon size={18} />
-            {label}
-          </NavLink>
-        ))}
-      </nav>
-
-      <div className="space-y-1 border-t border-white/10 px-3 py-3">
-        <button
-          onClick={handleSwitchProfile}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:bg-white/5 hover:text-slate-200"
-        >
-          <ArrowLeftRight size={18} />
-          Switch Profile
-        </button>
-        <button
-          onClick={logout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
-        >
-          <LogOut size={18} />
-          Sign Out
-        </button>
-      </div>
-    </>
-  );
-
   return (
     <>
       {/* Mobile top bar */}
-      <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-slate-800 bg-slate-900 px-4 md:hidden">
-        <button
-          onClick={() => setOpen(true)}
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10"
-        >
-          <Menu size={22} />
-        </button>
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-400 to-emerald-600 text-white">
-            <IndianRupee size={16} />
-          </div>
-          <span className="text-sm font-bold text-white">FinTrack</span>
+      <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-white/[0.07] bg-ink-950/85 px-5 backdrop-blur-xl md:hidden">
+        <Wordmark className="text-2xl" />
+        <div className="relative">
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            className="btn-icon"
+            aria-label="Account menu"
+          >
+            <MoreHorizontal size={20} />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-11 w-52 animate-rise rounded-2xl border border-white/10 bg-ink-900 p-2 shadow-2xl">
+                <p className="eyebrow truncate px-3 py-2">{profile?.name}</p>
+                <button
+                  onClick={handleSwitchProfile}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-paper hover:bg-white/[0.05]"
+                >
+                  <ArrowLeftRight size={16} /> Switch profile
+                </button>
+                <button
+                  onClick={logout}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-coral hover:bg-coral/10"
+                >
+                  <LogOut size={16} /> Sign out
+                </button>
+              </div>
+            </>
+          )}
         </div>
-      </div>
+      </header>
 
-      {/* Mobile overlay drawer */}
-      {open && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setOpen(false)}
-          />
-          <aside className="relative flex h-full w-64 flex-col bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 shadow-xl">
-            <button
-              onClick={() => setOpen(false)}
-              className="absolute right-3 top-5 rounded-lg p-1.5 text-slate-500 hover:bg-white/10 hover:text-slate-300"
+      {/* Mobile bottom tabs */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.07] bg-ink-950/90 pb-safe backdrop-blur-xl md:hidden">
+        <div className="grid grid-cols-5">
+          {links.map(({ to, icon: Icon, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === "/"}
+              className={({ isActive }) =>
+                `flex flex-col items-center gap-1 py-3 text-[10px] font-medium transition-colors ${
+                  isActive ? "text-lime" : "text-muted"
+                }`
+              }
             >
-              <X size={18} />
-            </button>
-            {navContent}
-          </aside>
+              {to === "/add-loan" ? (
+                <span className="-mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-lime text-ink-950">
+                  <Icon size={18} strokeWidth={2.5} />
+                </span>
+              ) : (
+                <Icon size={19} />
+              )}
+              {to !== "/add-loan" && label}
+            </NavLink>
+          ))}
         </div>
-      )}
+      </nav>
 
-      {/* Desktop sidebar */}
-      <aside className="hidden h-full w-64 flex-col bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 md:flex">
-        {navContent}
+      {/* Desktop rail */}
+      <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-white/[0.07] bg-ink-950 md:flex">
+        <div className="px-7 pb-10 pt-9">
+          <Wordmark className="text-[2.1rem]" />
+          <p className="eyebrow mt-3 truncate" title={profile?.name}>
+            {profile?.name || "Lending ledger"}
+          </p>
+        </div>
+
+        <nav className="flex-1 space-y-0.5 px-4">
+          {links.map(({ to, label }, i) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === "/"}
+              className={({ isActive }) =>
+                `group flex items-center gap-4 rounded-xl px-3 py-2.5 text-[15px] transition-colors duration-200 ${
+                  isActive ? "text-paper" : "text-muted hover:text-paper"
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <span className={`font-mono text-[11px] ${isActive ? "text-lime" : "text-faint"}`}>
+                    0{i + 1}
+                  </span>
+                  <span>{label}</span>
+                  <span
+                    className={`ml-auto h-1.5 w-1.5 rounded-full bg-lime transition-all duration-300 ${
+                      isActive ? "scale-100 opacity-100" : "scale-0 opacity-0"
+                    }`}
+                  />
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="space-y-0.5 border-t border-white/[0.07] px-4 py-4">
+          <button
+            onClick={handleSwitchProfile}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted transition-colors hover:text-paper"
+          >
+            <ArrowLeftRight size={15} /> Switch profile
+          </button>
+          <button
+            onClick={logout}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-faint transition-colors hover:text-coral"
+          >
+            <LogOut size={15} /> Sign out
+          </button>
+        </div>
       </aside>
     </>
   );

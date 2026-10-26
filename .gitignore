@@ -8,3 +8,4 @@ __pycache__/
 .DS_Store
 .venv-dev/
 .pytest_cache/
+.preview/

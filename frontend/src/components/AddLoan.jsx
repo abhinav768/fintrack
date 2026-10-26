@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  IndianRupee,
-  Calendar,
-  User,
-  Phone,
-  PlusCircle,
-  ArrowRight,
-} from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { getBorrowers, createBorrower, createLoan, previewLoan } from "../api";
-import { formatCurrency, todayISO, errorMessage } from "../lib/format";
+import { formatCurrency, formatMonthYear, todayISO, errorMessage } from "../lib/format";
+import { PageHeader, Reveal } from "./ui";
+
+function firstEmiMonth(loanDate) {
+  if (!loanDate) return null;
+  const [y, m] = loanDate.split("-").map(Number);
+  const next = new Date(y, m, 1);
+  return formatMonthYear(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-01`);
+}
 
 export default function AddLoan() {
   const navigate = useNavigate();
@@ -28,7 +29,10 @@ export default function AddLoan() {
 
   useEffect(() => {
     getBorrowers()
-      .then(setBorrowers)
+      .then((list) => {
+        setBorrowers(list);
+        if (list.length === 0) setNewBorrower(true);
+      })
       .catch(() => setError("Failed to load borrowers"));
   }, []);
 
@@ -99,77 +103,66 @@ export default function AddLoan() {
     }
   };
 
+  const borrowerLabel = newBorrower
+    ? name.trim() || "New borrower"
+    : borrowers.find((b) => String(b.id) === selectedBorrower)?.name || "—";
+  const interest = preview ? preview.total_return - principalNum : 0;
+
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-slate-800">Create New Loan</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Record a new lending transaction
-        </p>
-      </div>
+    <div>
+      <PageHeader
+        index="03"
+        eyebrow="New entry"
+        title="Lend"
+        accent="money"
+        subtitle="Record a loan. EMIs start the month after the loan date, with simple interest on the principal."
+      />
 
-      <form onSubmit={handleSubmit}>
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          {/* Borrower selection */}
-          <div className="mb-6">
+      <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[1fr_380px]">
+        <Reveal delay={80} className="space-y-8">
+          {/* Borrower */}
+          <fieldset>
             <div className="mb-3 flex items-center justify-between">
-              <label className="text-sm font-semibold text-slate-700">
-                Borrower
-              </label>
-              <button
-                type="button"
-                onClick={() => {
-                  setNewBorrower(!newBorrower);
-                  setSelectedBorrower("");
-                }}
-                className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-700"
-              >
-                {newBorrower ? (
-                  "Select existing"
-                ) : (
-                  <>
-                    <PlusCircle size={12} /> Add new
-                  </>
-                )}
-              </button>
+              <span className="eyebrow">01 · Borrower</span>
+              {borrowers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewBorrower(!newBorrower);
+                    setSelectedBorrower("");
+                  }}
+                  className="link-underline text-xs"
+                >
+                  {newBorrower ? "Pick existing" : "+ Add new"}
+                </button>
+              )}
             </div>
-
             {newBorrower ? (
-              <div className="space-y-3">
-                <div className="relative">
-                  <User
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Borrower name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                  />
-                </div>
-                <div className="relative">
-                  <Phone
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Phone number (optional)"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-                  />
-                </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <input
+                  type="text"
+                  placeholder="Full name"
+                  value={name}
+                  maxLength={100}
+                  onChange={(e) => setName(e.target.value)}
+                  className="input"
+                />
+                <input
+                  type="tel"
+                  placeholder="Phone (optional)"
+                  value={phone}
+                  maxLength={20}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="input"
+                />
               </div>
             ) : (
               <select
                 value={selectedBorrower}
                 onChange={(e) => setSelectedBorrower(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                className="input appearance-none"
               >
-                <option value="">Select a borrower...</option>
+                <option value="">Select a borrower…</option>
                 {borrowers.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name} {b.phone ? `(${b.phone})` : ""}
@@ -177,161 +170,139 @@ export default function AddLoan() {
                 ))}
               </select>
             )}
-          </div>
+          </fieldset>
 
-          {/* Principal amount */}
-          <div className="mb-6">
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-              Principal Amount
-            </label>
-            <div className="relative">
-              <IndianRupee
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
+          {/* Amount */}
+          <fieldset>
+            <span className="eyebrow mb-3 block">02 · Amount</span>
+            <div className="flex items-baseline gap-3 border-b border-white/10 pb-3 transition-colors focus-within:border-lime/60">
+              <span className="font-display text-4xl text-muted">₹</span>
               <input
                 type="number"
                 min="1"
                 step="1"
-                placeholder="e.g. 10000"
+                placeholder="0"
                 value={principal}
                 onChange={(e) => setPrincipal(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+                className="display w-full bg-transparent text-6xl outline-none placeholder:text-ink-700 sm:text-7xl"
               />
             </div>
-          </div>
+          </fieldset>
 
-          {/* Tenure */}
-          <div className="mb-6">
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-              Tenure (Months)
-            </label>
-            <div className="flex gap-2">
-              {[10, 15].map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setTotalMonths(m)}
-                  className={`rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                    totalMonths === m
-                      ? "bg-emerald-600 text-white shadow-sm"
-                      : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  {m} months
-                </button>
-              ))}
-              <input
-                type="number"
-                min="1"
-                max="120"
-                value={totalMonths}
-                onChange={(e) =>
-                  setTotalMonths(Math.min(120, Math.max(1, parseInt(e.target.value) || 1)))
-                }
-                className="w-24 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-center text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-              />
+          {/* Terms */}
+          <fieldset className="grid gap-6 sm:grid-cols-2">
+            <div>
+              <span className="eyebrow mb-3 block">03 · Tenure</span>
+              <div className="flex gap-2">
+                {[6, 10, 12, 15].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setTotalMonths(m)}
+                    className={`flex-1 rounded-xl border py-3 font-mono text-sm transition-colors ${
+                      totalMonths === m
+                        ? "border-lime bg-lime text-ink-950"
+                        : "border-white/10 text-muted hover:border-white/25 hover:text-paper"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  value={totalMonths}
+                  onChange={(e) => setTotalMonths(Math.min(120, Math.max(1, parseInt(e.target.value) || 1)))}
+                  className="input w-24 py-2 text-center figure"
+                />
+                <span className="text-xs text-muted">months (custom, up to 120)</span>
+              </div>
             </div>
-            <p className="mt-1.5 text-xs text-slate-400">
-              Quick pick 10 or 15, or type any custom duration
-            </p>
-          </div>
+            <div>
+              <span className="eyebrow mb-3 block">04 · Interest / month</span>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="0.1"
+                  value={monthlyRate}
+                  onChange={(e) => setMonthlyRate(e.target.value)}
+                  className="input pr-10 figure"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-muted">%</span>
+              </div>
+              <p className="mt-2 text-xs text-muted">Simple interest on principal. Default 4%.</p>
+            </div>
+          </fieldset>
 
-          {/* Interest rate */}
-          <div className="mb-6">
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-              Interest Rate (% per month)
-            </label>
+          <fieldset>
+            <span className="eyebrow mb-3 block">05 · Loan date</span>
             <input
-              type="number"
-              min="0"
-              max="20"
-              step="0.1"
-              value={monthlyRate}
-              onChange={(e) => setMonthlyRate(e.target.value)}
-              className="w-32 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+              type="date"
+              value={loanDate}
+              onChange={(e) => setLoanDate(e.target.value)}
+              className="input sm:w-64"
             />
-            <p className="mt-1.5 text-xs text-slate-400">Simple interest on the principal. Default 4%.</p>
-          </div>
+          </fieldset>
+        </Reveal>
 
-          {/* Loan date */}
-          <div className="mb-6">
-            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
-              Loan Date
-            </label>
-            <div className="relative">
-              <Calendar
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                type="date"
-                value={loanDate}
-                onChange={(e) => setLoanDate(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-              />
+        {/* Receipt */}
+        <Reveal delay={160} className="lg:sticky lg:top-8 lg:self-start">
+          <div className="card overflow-hidden">
+            <div className="border-b border-dashed border-white/10 p-6">
+              <p className="eyebrow">Summary</p>
+              <p className="display mt-3 truncate text-3xl">{borrowerLabel}</p>
             </div>
-            <p className="mt-1.5 text-xs text-slate-400">
-              EMI cycle will start from the following month
-            </p>
+            <dl className="space-y-3 p-6 text-sm">
+              {[
+                ["Principal", formatCurrency(principalNum)],
+                ["Interest", preview ? `${formatCurrency(interest)} · ${preview.interest_pct}%` : "—"],
+                ["Tenure", `${totalMonths} months`],
+                ["First EMI", firstEmiMonth(loanDate) || "—"],
+              ].map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4">
+                  <dt className="text-muted">{k}</dt>
+                  <dd className="figure text-paper">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="border-t border-dashed border-white/10 p-6">
+              <p className="eyebrow">Monthly EMI</p>
+              <p className="display mt-2 text-5xl text-lime">
+                {preview ? formatCurrency(preview.monthly_emi) : "₹0"}
+              </p>
+              <div className="mt-4 flex justify-between text-sm">
+                <span className="text-muted">Total return</span>
+                <span className="figure">{preview ? formatCurrency(preview.total_return) : "—"}</span>
+              </div>
+              {preview && preview.last_emi !== preview.monthly_emi && (
+                <p className="mt-2 text-xs text-faint">
+                  Last EMI is {formatCurrency(preview.last_emi)} to absorb rounding.
+                </p>
+              )}
+            </div>
           </div>
-
-          {/* Preview */}
-          {preview && (
-            <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-              <h4 className="mb-3 text-sm font-semibold text-emerald-800">
-                Loan Summary
-              </h4>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-xs text-emerald-600">Principal</p>
-                  <p className="text-base font-bold text-emerald-800">
-                    {formatCurrency(principalNum)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-emerald-600">
-                    Total Return ({preview.interest_pct}%)
-                  </p>
-                  <p className="text-base font-bold text-emerald-800">
-                    {formatCurrency(preview.total_return)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-emerald-600">Monthly EMI</p>
-                  <p className="text-base font-bold text-emerald-800">
-                    {formatCurrency(preview.monthly_emi)}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-3 border-t border-emerald-200 pt-3 text-center text-xs text-emerald-600">
-                {totalMonths} monthly installments of {formatCurrency(preview.monthly_emi)}
-                {preview.last_emi !== preview.monthly_emi &&
-                  ` (last one ${preview.last_emi.toLocaleString("en-IN", { maximumFractionDigits: 2 })})`}
-              </div>
-            </div>
-          )}
 
           {error && (
-            <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+            <p className="mt-4 rounded-xl border border-coral/30 bg-coral/10 px-4 py-3 text-sm text-coral">
               {error}
-            </div>
+            </p>
           )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-50"
-          >
+          <button type="submit" disabled={submitting} className="btn-primary mt-4 w-full py-4 text-base">
             {submitting ? (
-              "Creating..."
+              <Loader2 size={18} className="animate-spin" />
             ) : (
               <>
-                Create Loan <ArrowRight size={16} />
+                Create loan <ArrowRight size={18} />
               </>
             )}
           </button>
-        </div>
+        </Reveal>
       </form>
     </div>
   );

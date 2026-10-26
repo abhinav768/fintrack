@@ -1,17 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  Bell,
-  Shield,
-  Send,
-  Save,
-  CheckCircle2,
-  AlertCircle,
-  ExternalLink,
-  Copy,
-  Loader2,
-  BellRing,
-  User,
-} from "lucide-react";
+import { Send, ExternalLink, Copy, Loader2, RefreshCw } from "lucide-react";
 import {
   getNotificationSettings,
   updateNotificationSettings,
@@ -21,9 +9,25 @@ import {
 } from "../api";
 import { useAuth } from "../AuthContext";
 import { errorMessage } from "../lib/format";
+import { useToast } from "./Toast";
+import { PageHeader, Reveal } from "./ui";
+
+function Section({ index, title, body, children, delay }) {
+  return (
+    <Reveal delay={delay} className="grid gap-6 border-b border-white/[0.07] py-10 lg:grid-cols-[280px_1fr] lg:gap-12">
+      <div>
+        <p className="font-mono text-[11px] text-lime">{index}</p>
+        <h2 className="display mt-2 text-3xl">{title}</h2>
+        {body && <p className="mt-3 text-sm leading-relaxed text-muted">{body}</p>}
+      </div>
+      <div className="min-w-0">{children}</div>
+    </Reveal>
+  );
+}
 
 export default function Settings() {
   const { user, profile, updateProfile } = useAuth();
+  const toast = useToast();
   const [profileName, setProfileName] = useState(profile?.name || "");
   const [savingProfile, setSavingProfile] = useState(false);
 
@@ -33,37 +37,32 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [configured, setConfigured] = useState(false);
-  const [toast, setToast] = useState(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
-    getNotificationSettings().then((d) => {
-      setTopic(d.ntfy_topic);
-      setTopic2(d.ntfy_topic_2 || "");
-      setSecret(d.notify_secret);
-      setConfigured(d.configured);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 4000);
-    return () => clearTimeout(t);
+    getNotificationSettings()
+      .then((d) => {
+        setTopic(d.ntfy_topic);
+        setTopic2(d.ntfy_topic_2 || "");
+        setSecret(d.notify_secret);
+        setConfigured(d.configured);
+      })
+      .catch((err) => toast.error(errorMessage(err, "Failed to load notification settings")));
   }, [toast]);
 
   const handleSaveProfile = async () => {
     if (!profileName.trim()) {
-      setToast({ type: "error", msg: "Profile name cannot be empty" });
+      toast.error("Profile name cannot be empty");
       return;
     }
     setSavingProfile(true);
     try {
       await updateProfile(profile.id, profileName.trim());
-      setToast({ type: "ok", msg: "Profile name updated!" });
-    } catch {
-      setToast({ type: "error", msg: "Failed to update profile name" });
+      toast.success("Profile name updated");
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to update profile name"));
     } finally {
       setSavingProfile(false);
     }
@@ -71,7 +70,7 @@ export default function Settings() {
 
   const handleSave = async () => {
     if (!topic || !secret) {
-      setToast({ type: "error", msg: "All fields are required" });
+      toast.error("Topic and secret are required");
       return;
     }
     setSaving(true);
@@ -82,9 +81,9 @@ export default function Settings() {
         notify_secret: secret,
       });
       setConfigured(true);
-      setToast({ type: "ok", msg: "Settings saved!" });
+      toast.success("Notification settings saved");
     } catch (err) {
-      setToast({ type: "error", msg: errorMessage(err, "Failed to save settings") });
+      toast.error(errorMessage(err, "Failed to save settings"));
     } finally {
       setSaving(false);
     }
@@ -94,12 +93,9 @@ export default function Settings() {
     setTesting(true);
     try {
       await sendTestNotification();
-      setToast({ type: "ok", msg: "Test notification sent! Check your phone." });
-    } catch (e) {
-      setToast({
-        type: "error",
-        msg: e.response?.data?.detail || "Failed to send notification",
-      });
+      toast.success("Test notification sent. Check your phone.");
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to send notification"));
     } finally {
       setTesting(false);
     }
@@ -110,14 +106,14 @@ export default function Settings() {
       const { notify_secret } = await generateNotifySecret();
       setSecret(notify_secret);
     } catch (err) {
-      setToast({ type: "error", msg: errorMessage(err, "Failed to generate secret") });
+      toast.error(errorMessage(err, "Failed to generate secret"));
     }
   };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
     if (newPassword.length < 8) {
-      setToast({ type: "error", msg: "New password must be at least 8 characters" });
+      toast.error("New password must be at least 8 characters");
       return;
     }
     setChangingPassword(true);
@@ -125,293 +121,167 @@ export default function Settings() {
       await changePassword({ current_password: currentPassword, new_password: newPassword });
       setCurrentPassword("");
       setNewPassword("");
-      setToast({ type: "ok", msg: "Password updated" });
+      toast.success("Password updated");
     } catch (err) {
-      setToast({ type: "error", msg: errorMessage(err, "Failed to change password") });
+      toast.error(errorMessage(err, "Failed to change password"));
     } finally {
       setChangingPassword(false);
     }
   };
 
+  const copy = (value, label) => {
+    navigator.clipboard.writeText(value);
+    toast.success(`${label} copied`);
+  };
+
   const cronUrl = `${window.location.origin}/api/notify/daily-reminders`;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800">Settings</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Manage your profile and notification settings
-        </p>
-      </div>
+    <div>
+      <PageHeader index="05" eyebrow="Preferences" title="Settings" />
 
-      {toast && (
-        <div
-          className={`flex items-center gap-2 rounded-lg border px-4 py-3 text-sm ${
-            toast.type === "ok"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-700"
-          }`}
-        >
-          {toast.type === "ok" ? (
-            <CheckCircle2 size={16} />
-          ) : (
-            <AlertCircle size={16} />
-          )}
-          {toast.msg}
+      <Section delay={60} index="01" title="Profile" body={`Signed in as ${user?.username}.`}>
+        <label className="label">Profile name</label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="text"
+            value={profileName}
+            maxLength={100}
+            onChange={(e) => setProfileName(e.target.value)}
+            className="input flex-1"
+          />
+          <button onClick={handleSaveProfile} disabled={savingProfile} className="btn-primary">
+            {savingProfile && <Loader2 size={16} className="animate-spin" />} Save
+          </button>
         </div>
-      )}
+      </Section>
 
-      {/* Profile section */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-        <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-800">
-          <User size={18} className="text-emerald-600" /> Profile
-        </h3>
-        <div className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Profile Name
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={profileName}
-                onChange={(e) => setProfileName(e.target.value)}
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              />
-              <button
-                onClick={handleSaveProfile}
-                disabled={savingProfile}
-                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {savingProfile ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Save size={16} />
-                )}
-                Save
-              </button>
-            </div>
-            <p className="mt-1 text-xs text-slate-400">
-              Signed in as <strong>{user?.username}</strong>
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Password */}
-      <form onSubmit={handleChangePassword} className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-        <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-800">
-          <Shield size={18} className="text-emerald-600" /> Change Password
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+      <Section delay={120} index="02" title="Password" body="Use at least 8 characters. You stay signed in on this device.">
+        <form onSubmit={handleChangePassword} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
           <input
             type="password"
             autoComplete="current-password"
             placeholder="Current password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="input"
           />
           <input
             type="password"
             autoComplete="new-password"
-            placeholder="New password (8+ characters)"
+            placeholder="New password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="input"
           />
-          <button
-            type="submit"
-            disabled={changingPassword || !currentPassword || !newPassword}
-            className="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {changingPassword ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            Update
+          <button type="submit" disabled={changingPassword || !currentPassword || !newPassword} className="btn-primary">
+            {changingPassword && <Loader2 size={16} className="animate-spin" />} Update
           </button>
-        </div>
-      </form>
+        </form>
+      </Section>
 
-      {/* Setup guide */}
-      <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 sm:p-5">
-        <h3 className="flex items-center gap-2 font-semibold text-blue-800">
-          <Bell size={18} /> How it works
-        </h3>
-        <ol className="mt-3 space-y-2 text-sm text-blue-700">
-          <li>
-            <strong>Step 1:</strong> Install the{" "}
-            <a
-              href="https://ntfy.sh"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 underline"
-            >
-              ntfy app <ExternalLink size={12} />
-            </a>{" "}
-            on your phone and subscribe to your topic.
-          </li>
-          <li>
-            <strong>Step 2:</strong> Enter the same topic name below, generate a
-            secret token, and save.
-          </li>
-          <li>
-            <strong>Step 3:</strong> Set up a free cron job at{" "}
-            <a
-              href="https://cron-job.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 underline"
-            >
-              cron-job.org <ExternalLink size={12} />
-            </a>{" "}
-            to trigger the reminder URL daily at 9:00 AM IST.
-          </li>
+      <Section
+        delay={180}
+        index="03"
+        title="Reminders"
+        body="Get a push notification on the morning an EMI is due."
+      >
+        <ol className="mb-8 space-y-3 text-sm text-muted">
+          {[
+            <>
+              Install the{" "}
+              <a href="https://ntfy.sh" target="_blank" rel="noopener noreferrer" className="link-underline">
+                ntfy app <ExternalLink size={11} />
+              </a>{" "}
+              and subscribe to a topic name.
+            </>,
+            <>Enter the same topic below, generate a secret and save.</>,
+            <>
+              Create a daily job on{" "}
+              <a href="https://cron-job.org" target="_blank" rel="noopener noreferrer" className="link-underline">
+                cron-job.org <ExternalLink size={11} />
+              </a>{" "}
+              using the URL and header shown after saving.
+            </>,
+          ].map((step, i) => (
+            <li key={i} className="flex gap-4">
+              <span className="font-mono text-xs text-faint">0{i + 1}</span>
+              <span>{step}</span>
+            </li>
+          ))}
         </ol>
-      </div>
 
-      {/* Config form */}
-      <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-        <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-800">
-          <BellRing size={18} className="text-emerald-600" /> Notification
-          Configuration
-        </h3>
-
-        <div className="space-y-4">
+        <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              ntfy Topic Name (Phone 1)
-            </label>
+            <label className="label">Topic · phone 1</label>
             <input
               type="text"
-              placeholder="fintrack-abhinav-reminders"
+              placeholder="fintrack-reminders"
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="input"
             />
-            <p className="mt-1 text-xs text-slate-400">
-              Must match the topic you subscribed to in the ntfy app.
-            </p>
           </div>
-
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              ntfy Topic Name (Phone 2)
-              <span className="ml-1 text-xs font-normal text-slate-400">
-                — optional
-              </span>
-            </label>
+            <label className="label">Topic · phone 2 (optional)</label>
             <input
               type="text"
-              placeholder="fintrack-sabina-reminders"
+              placeholder="Leave empty if not needed"
               value={topic2}
               onChange={(e) => setTopic2(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              className="input"
             />
-            <p className="mt-1 text-xs text-slate-400">
-              Optional second phone. Leave empty if not needed.
-            </p>
           </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Cron Secret Token
-            </label>
+          <div className="sm:col-span-2">
+            <label className="label">Cron secret</label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                className="input flex-1 font-mono text-xs"
               />
-              <button
-                onClick={generateSecret}
-                className="whitespace-nowrap rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50"
-              >
-                <Shield size={14} className="mr-1 inline" />
-                Generate
+              <button onClick={generateSecret} className="btn-ghost px-4" title="Generate a new secret">
+                <RefreshCw size={14} /> <span className="hidden sm:inline">Generate</span>
               </button>
             </div>
-            <p className="mt-1 text-xs text-slate-400">
-              Secures the reminder endpoint from unauthorized access.
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-2">
+          <button onClick={handleSave} disabled={saving} className="btn-primary">
+            {saving && <Loader2 size={16} className="animate-spin" />} Save reminders
+          </button>
+          <button onClick={handleTest} disabled={testing || !configured} className="btn-ghost">
+            {testing ? <Loader2 size={16} className="animate-spin" /> : <Send size={14} />} Send test
+          </button>
+        </div>
+
+        {configured && (
+          <div className="card mt-8 p-5">
+            <p className="eyebrow">Cron job · daily at 03:30 UTC (9:00 IST)</p>
+            <div className="mt-4 space-y-2">
+              {[
+                { label: "URL", shown: cronUrl, value: cronUrl },
+                { label: "Header", shown: `X-Notify-Token: ${secret}`, value: secret, copyLabel: "Token" },
+              ].map(({ label, shown, value, copyLabel }) => (
+                <div key={label} className="flex items-center gap-3">
+                  <span className="w-14 shrink-0 font-mono text-[11px] text-faint">{label}</span>
+                  <code className="flex-1 overflow-x-auto whitespace-nowrap rounded-lg bg-ink-950 px-3 py-2.5 font-mono text-xs text-paper scrollbar-thin">
+                    {shown}
+                  </code>
+                  <button onClick={() => copy(value, copyLabel || label)} className="btn-icon" title={`Copy ${label}`}>
+                    <Copy size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-xs text-muted">
+              On cron-job.org add the header under Advanced → Headers. Keeping the secret out of the URL keeps it out of logs.
             </p>
           </div>
-
-          <div className="flex flex-wrap gap-3 pt-2">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {saving ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Save size={16} />
-              )}
-              Save Settings
-            </button>
-            <button
-              onClick={handleTest}
-              disabled={testing || !configured}
-              className="flex items-center gap-2 rounded-lg border border-emerald-300 px-5 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-            >
-              {testing ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Send size={16} />
-              )}
-              Send Test
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Cron URL section */}
-      {configured && (
-        <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-          <h3 className="mb-3 flex items-center gap-2 font-semibold text-slate-800">
-            <ExternalLink size={18} className="text-emerald-600" /> Cron Job URL
-          </h3>
-          <p className="mb-3 text-sm text-slate-500">
-            Create a daily job at{" "}
-            <a
-              href="https://cron-job.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-emerald-600 underline"
-            >
-              cron-job.org
-            </a>{" "}
-            for <strong>9:00 AM IST</strong> (3:30 AM UTC) with this URL, and under{" "}
-            <em>Advanced → Headers</em> add the header below. Keeping the secret in a header
-            stops it from appearing in logs.
-          </p>
-          {[
-            { label: "URL", value: cronUrl },
-            { label: "Header", value: `X-Notify-Token: ${secret}` },
-          ].map(({ label, value }) => (
-            <div key={label} className="mb-2 flex items-center gap-2">
-              <span className="w-14 shrink-0 text-xs font-medium text-slate-500">{label}</span>
-              <code className="flex-1 overflow-x-auto break-all rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">
-                {value}
-              </code>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(label === "Header" ? secret : value);
-                  setToast({ type: "ok", msg: `${label === "Header" ? "Token" : "URL"} copied!` });
-                }}
-                className="shrink-0 rounded-lg border border-slate-300 p-2 text-slate-500 hover:bg-slate-50"
-                title={label === "Header" ? "Copy token value" : "Copy URL"}
-              >
-                <Copy size={16} />
-              </button>
-            </div>
-          ))}
-          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            <strong>cron-job.org schedule:</strong> Set execution time to{" "}
-            <code className="rounded bg-amber-100 px-1">03:30</code> UTC (=
-            9:00 AM IST). Choose &quot;Every day&quot; for frequency.
-          </div>
-        </div>
-      )}
+        )}
+      </Section>
     </div>
   );
 }

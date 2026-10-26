@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, ArrowRight, Trash2, Download, AlertTriangle } from "lucide-react";
+import { Search, ArrowUpRight, Trash2, Download, Plus } from "lucide-react";
 import { getLoans, deleteLoan, downloadExport } from "../api";
-import { formatCurrency, errorMessage } from "../lib/format";
+import { formatCurrency, formatFullDate, errorMessage } from "../lib/format";
 import { useToast } from "./Toast";
+import { Avatar, EmptyState, LoanStatusChip, PageHeader, PageLoader, ProgressBar, Reveal } from "./ui";
 
 const FILTERS = ["all", "active", "overdue", "completed"];
 
@@ -49,6 +50,13 @@ export default function Loans() {
     }
   };
 
+  const counts = {
+    all: loans.length,
+    active: loans.filter((l) => l.status === "active").length,
+    overdue: loans.filter((l) => l.overdue_count > 0).length,
+    completed: loans.filter((l) => l.status === "completed").length,
+  };
+
   const filtered = loans.filter((l) => {
     const matchesSearch = l.borrower_name.toLowerCase().includes(search.toLowerCase());
     const matchesFilter =
@@ -57,177 +65,125 @@ export default function Loans() {
     return matchesSearch && matchesFilter;
   });
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-      </div>
-    );
-  }
+  if (loading) return <PageLoader />;
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">All Loans</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            {loans.length} total &middot; {loans.filter((l) => l.status === "active").length} active
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <button
-            onClick={() => handleExport("loans")}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            <Download size={14} /> Loans CSV
-          </button>
-          <button
-            onClick={() => handleExport("payments")}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-          >
-            <Download size={14} /> Payments CSV
-          </button>
-          <Link
-            to="/add-loan"
-            className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
-          >
-            + New Loan
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        index="02"
+        eyebrow="Ledger"
+        title="All"
+        accent="loans"
+        subtitle={`${counts.all} loans on record, ${counts.active} still running.`}
+        actions={
+          <>
+            <button onClick={() => handleExport("loans")} className="btn-ghost px-4">
+              <Download size={14} /> Loans CSV
+            </button>
+            <button onClick={() => handleExport("payments")} className="btn-ghost px-4">
+              <Download size={14} /> Payments CSV
+            </button>
+            <Link to="/add-loan" className="btn-primary">
+              <Plus size={16} /> New loan
+            </Link>
+          </>
+        }
+      />
 
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
-          <Search
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-          />
-          <input
-            type="text"
-            placeholder="Search by borrower name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <Reveal delay={100} className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex gap-1 overflow-x-auto rounded-full border border-white/[0.07] p-1">
           {FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`rounded-lg px-4 py-2.5 text-sm font-medium capitalize transition-colors ${
-                filter === f
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+              className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-sm capitalize transition-colors ${
+                filter === f ? "bg-paper text-ink-950" : "text-muted hover:text-paper"
               }`}
             >
               {f}
+              <span className={`font-mono text-[11px] ${filter === f ? "text-ink-950/60" : "text-faint"}`}>
+                {counts[f]}
+              </span>
             </button>
           ))}
         </div>
-      </div>
+        <div className="relative lg:w-72">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-faint" />
+          <input
+            type="text"
+            placeholder="Search borrower…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input rounded-full pl-11"
+          />
+        </div>
+      </Reveal>
 
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 bg-white px-5 py-16 text-center shadow-sm">
-          <p className="text-slate-500">No loans found</p>
-        </div>
+        <EmptyState
+          title="Nothing here"
+          body={search ? `No loans match “${search}”.` : "No loans in this view yet."}
+        />
       ) : (
-        <div className="space-y-3">
-          {filtered.map((loan) => {
-            const progress =
-              loan.total_return > 0
-                ? (loan.total_paid / loan.total_return) * 100
-                : 0;
-            return (
-              <Link
-                key={loan.id}
-                to={`/loans/${loan.id}`}
-                className="group block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:shadow-md sm:p-5"
-              >
-                <div className="flex items-start justify-between gap-3 sm:items-center">
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700 sm:h-11 sm:w-11 sm:text-base">
-                      {loan.borrower_name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-800 sm:text-base">
-                        {loan.borrower_name}
-                      </h3>
-                      <p className="mt-0.5 text-xs text-slate-400">
-                        <span className="hidden sm:inline">Loan date: {loan.loan_date} &middot; EMI starts: {loan.cycle_start_date}</span>
-                        <span className="sm:hidden">{formatCurrency(loan.principal)} &middot; {loan.total_months}mo</span>
+        <Reveal delay={160} className="card overflow-hidden">
+          <div className="hidden grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_120px_72px] gap-4 border-b border-white/[0.07] px-6 py-3 lg:grid">
+            {["Borrower", "Principal", "Collected", "Remaining", "Progress", ""].map((h) => (
+              <span key={h} className="eyebrow">{h}</span>
+            ))}
+          </div>
+          <div className="divide-y divide-white/[0.06]">
+            {filtered.map((loan) => {
+              const progress = loan.total_return > 0 ? (loan.total_paid / loan.total_return) * 100 : 0;
+              return (
+                <Link
+                  key={loan.id}
+                  to={`/loans/${loan.id}`}
+                  className="group grid grid-cols-[1fr_auto] items-center gap-4 px-5 py-4 transition-colors hover:bg-white/[0.03] sm:px-6 lg:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_120px_72px]"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar name={loan.borrower_name} size="sm" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm text-paper">{loan.borrower_name}</p>
+                        <LoanStatusChip status={loan.status} overdueCount={loan.overdue_count} />
+                      </div>
+                      <p className="mt-0.5 text-xs text-faint">
+                        {formatFullDate(loan.loan_date)} · {loan.total_months} months
                       </p>
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2 sm:gap-5">
-                    <div className="hidden text-right sm:block">
-                      <p className="text-sm font-bold text-slate-800">
-                        {formatCurrency(loan.principal)}
-                      </p>
-                      <p className="text-xs text-slate-400">Principal</p>
-                    </div>
-                    <div className="hidden text-right sm:block">
-                      <p className="text-sm font-bold text-emerald-600">
-                        {formatCurrency(loan.total_paid)}
-                      </p>
-                      <p className="text-xs text-slate-400">Collected</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-amber-600">
-                        {formatCurrency(loan.remaining)}
-                      </p>
-                      <p className="text-xs text-slate-400">Remaining</p>
-                    </div>
-                    {loan.overdue_count > 0 && (
-                      <span className="flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
-                        <AlertTriangle size={12} /> {loan.overdue_count}
-                      </span>
-                    )}
-                    <span
-                      className={`hidden rounded-full px-2.5 py-1 text-xs font-semibold sm:inline ${
-                        loan.status === "active"
-                          ? "bg-emerald-50 text-emerald-700"
-                          : "bg-slate-100 text-slate-600"
-                      }`}
-                    >
-                      {loan.status}
+                  <span className="figure hidden text-sm text-muted lg:block">{formatCurrency(loan.principal)}</span>
+                  <span className="figure hidden text-sm text-lime lg:block">{formatCurrency(loan.total_paid)}</span>
+                  <div className="text-right lg:text-left">
+                    <span className="figure text-sm text-paper">{formatCurrency(loan.remaining)}</span>
+                    <p className="text-[11px] text-faint lg:hidden">
+                      {loan.months_paid}/{loan.total_months} paid
+                    </p>
+                  </div>
+                  <div className="col-span-2 flex items-center gap-3 lg:col-span-1">
+                    <ProgressBar value={progress} tone={loan.overdue_count > 0 ? "coral" : "lime"} className="flex-1" />
+                    <span className="w-10 text-right font-mono text-[11px] text-muted">
+                      {loan.months_paid}/{loan.total_months}
                     </span>
+                  </div>
+                  <div className="hidden items-center justify-end gap-1 lg:flex">
                     <button
                       onClick={(e) => handleDelete(e, loan.id)}
-                      className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
+                      className="btn-icon opacity-0 hover:text-coral group-hover:opacity-100"
+                      aria-label="Delete loan"
                     >
                       <Trash2 size={15} />
                     </button>
-                    <ArrowRight
+                    <ArrowUpRight
                       size={16}
-                      className="hidden text-slate-300 transition-colors group-hover:text-emerald-500 sm:block"
+                      className="text-faint transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-lime"
                     />
                   </div>
-                </div>
-                <div className="mt-4">
-                  <div className="mb-1.5 flex items-center justify-between text-xs text-slate-500">
-                    <span>
-                      {loan.months_paid} of {loan.total_months} months paid
-                    </span>
-                    <span className="font-medium">
-                      {Math.round(progress)}%
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        loan.status === "completed"
-                          ? "bg-emerald-500"
-                          : "bg-emerald-400"
-                      }`}
-                      style={{ width: `${Math.min(100, progress)}%` }}
-                    />
-                  </div>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                </Link>
+              );
+            })}
+          </div>
+        </Reveal>
       )}
     </div>
   );

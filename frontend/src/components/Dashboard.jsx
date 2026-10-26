@@ -1,17 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  IndianRupee,
-  TrendingUp,
-  CheckCircle2,
-  Clock,
-  ArrowRight,
-  AlertCircle,
-  CalendarDays,
-  Pencil,
-  X,
-  Check,
-} from "lucide-react";
+import { ArrowUpRight, Pencil, X, Check, Plus } from "lucide-react";
 import { useAuth } from "../AuthContext";
 import {
   getDashboard,
@@ -23,6 +12,57 @@ import {
 } from "../api";
 import { formatCurrency, formatDayMonth, errorMessage } from "../lib/format";
 import { useToast } from "./Toast";
+import {
+  Avatar,
+  EmptyState,
+  Money,
+  PageLoader,
+  ProgressBar,
+  Reveal,
+  useCountUp,
+} from "./ui";
+
+function greeting() {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-IN", { hour: "numeric", hour12: false, timeZone: "Asia/Kolkata" }).format(new Date())
+  );
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+const pct = (part, whole) => (whole > 0 ? Math.round((part / whole) * 100) : 0);
+
+function SectionTitle({ children, action }) {
+  return (
+    <div className="flex items-center justify-between px-5 pb-4 pt-6 sm:px-6">
+      <h3 className="display text-2xl sm:text-3xl">{children}</h3>
+      {action}
+    </div>
+  );
+}
+
+function Ticker({ items }) {
+  const row = (
+    <div className="flex shrink-0 items-center">
+      {items.map(([label, value]) => (
+        <span key={label} className="flex items-center gap-3 px-6">
+          <span className="eyebrow">{label}</span>
+          <span className="figure text-sm text-paper">{value}</span>
+          <span className="ml-6 h-1 w-1 rounded-full bg-lime" />
+        </span>
+      ))}
+    </div>
+  );
+  return (
+    <div className="relative -mx-5 overflow-hidden border-y border-white/[0.07] py-3.5 sm:-mx-8 lg:-mx-12">
+      <div className="flex w-max animate-marquee hover:[animation-play-state:paused]">
+        {row}
+        {row}
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { profile } = useAuth();
@@ -57,6 +97,8 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [toast]);
 
+  const animatedBalance = useCountUp(balance?.current_balance ?? 0, 1200);
+
   const handleSaveBalance = async () => {
     const val = parseFloat(newBalance);
     if (isNaN(val)) return;
@@ -69,474 +111,293 @@ export default function Dashboard() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-      </div>
-    );
-  }
+  if (loading) return <PageLoader />;
 
   if (!stats) {
     return (
-      <div className="py-20 text-center text-sm text-slate-500">
-        Couldn't load your dashboard. Check your connection and refresh.
-      </div>
+      <EmptyState
+        title="Couldn't load your overview"
+        body="Check your connection and refresh the page."
+      />
     );
   }
 
-  const statCards = [
-    {
-      label: "Total Lent",
-      value: formatCurrency(stats.total_principal_given),
-      icon: IndianRupee,
-      gradient: "from-blue-500 to-blue-600",
-      shadow: "shadow-blue-500/20",
-      lightBg: "bg-blue-500/10",
-    },
-    {
-      label: "Expected Return",
-      value: formatCurrency(stats.total_expected_return),
-      icon: TrendingUp,
-      gradient: "from-violet-500 to-purple-600",
-      shadow: "shadow-violet-500/20",
-      lightBg: "bg-violet-500/10",
-    },
-    {
-      label: "Collected",
-      value: formatCurrency(stats.total_collected),
-      icon: CheckCircle2,
-      gradient: "from-emerald-500 to-teal-600",
-      shadow: "shadow-emerald-500/20",
-      lightBg: "bg-emerald-500/10",
-    },
-    {
-      label: "Pending",
-      value: formatCurrency(stats.total_pending),
-      icon: Clock,
-      gradient: "from-amber-500 to-orange-600",
-      shadow: "shadow-amber-500/20",
-      lightBg: "bg-amber-500/10",
-    },
+  const activeLoans = loans.filter((l) => l.status === "active");
+  const monthPct = monthly ? pct(monthly.collected_total, monthly.expected_total) : 0;
+  const lifetimePct = pct(stats.total_collected, stats.total_expected_return);
+
+  const tiles = [
+    { label: "Total lent", value: stats.total_principal_given, note: `${stats.total_loans} loans` },
+    { label: "Expected return", value: stats.total_expected_return, note: "Principal + interest" },
+    { label: "Collected", value: stats.total_collected, note: `${lifetimePct}% of expected`, accent: true },
+    { label: "Pending", value: stats.total_pending, note: `${stats.active_loans} active` },
   ];
 
-  const activeLoans = loans.filter((l) => l.status === "active");
-
   return (
-    <div>
-      {/* Hero header */}
-      <div className="mb-8 overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-6 shadow-xl sm:p-8">
-        <div className="relative">
-          <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-500/10 blur-3xl" />
-          <div className="absolute -bottom-12 -left-12 h-36 w-36 rounded-full bg-blue-500/10 blur-3xl" />
-          <div className="relative">
-            <h2 className="text-2xl font-bold text-white sm:text-3xl">
-              {profile?.name ? `${profile.name}` : "Dashboard"}
-            </h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Overview of your lending portfolio
-            </p>
+    <div className="space-y-10">
+      {/* Hero */}
+      <section className="grid gap-8 lg:grid-cols-[1fr_320px] lg:items-end">
+        <div>
+          <Reveal as="p" className="eyebrow">
+            <span className="text-lime">01</span>
+            <span className="mx-2 text-faint">/</span>
+            {greeting()}, {profile?.name}
+          </Reveal>
+          <Reveal delay={80} as="p" className="mt-8 text-sm text-muted">
+            Account balance
+          </Reveal>
+          <Reveal delay={140}>
+            <h1 className="display mt-2 break-all text-[3.75rem] sm:text-8xl xl:text-[8.5rem]">
+              <Money
+                value={Math.round(animatedBalance)}
+                symbolClass="mr-1 align-[0.55em] font-sans text-[0.32em] font-normal text-muted sm:mr-3"
+              />
+            </h1>
+          </Reveal>
 
-            {/* Balance inline */}
-            {balance && (
-              <div className="mt-5 flex flex-wrap items-end gap-6">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-emerald-400">
-                    Account Balance
-                  </p>
-                  <p className="mt-1 text-3xl font-bold text-white sm:text-4xl">
-                    {formatCurrency(balance.current_balance)}
-                  </p>
-                </div>
-                <div className="flex items-center gap-4 pb-1">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-500">
-                      Base
-                    </p>
-                    {editingBalance ? (
-                      <div className="mt-0.5 flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={newBalance}
-                          onChange={(e) => setNewBalance(e.target.value)}
-                          className="w-24 rounded border border-slate-600 bg-slate-700 px-2 py-1 text-center text-sm text-white outline-none focus:border-emerald-400"
-                          autoFocus
-                        />
-                        <button
-                          onClick={handleSaveBalance}
-                          className="rounded p-1 text-emerald-400 hover:bg-emerald-500/20"
-                        >
-                          <Check size={14} />
-                        </button>
-                        <button
-                          onClick={() => setEditingBalance(false)}
-                          className="rounded p-1 text-slate-400 hover:bg-white/10"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="mt-0.5 flex items-center gap-1 text-sm font-semibold text-slate-300">
-                        {formatCurrency(balance.base_balance)}
-                        <button
-                          onClick={() => {
-                            setNewBalance(String(balance.base_balance));
-                            setEditingBalance(true);
-                          }}
-                          className="rounded p-0.5 text-slate-500 hover:text-slate-300"
-                        >
-                          <Pencil size={11} />
-                        </button>
-                      </p>
-                    )}
-                  </div>
-                  {balance.new_collections > 0 && (
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-slate-500">
-                        + New EMIs
-                      </p>
-                      <p className="mt-0.5 text-sm font-semibold text-emerald-400">
-                        {formatCurrency(balance.new_collections)}
-                      </p>
-                    </div>
-                  )}
-                  {balance.new_lending > 0 && (
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-slate-500">
-                        − Lent
-                      </p>
-                      <p className="mt-0.5 text-sm font-semibold text-amber-400">
-                        {formatCurrency(balance.new_lending)}
-                      </p>
-                    </div>
-                  )}
-                </div>
+          {balance && (
+            <Reveal delay={220} className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-muted">Opening</span>
+                {editingBalance ? (
+                  <span className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      value={newBalance}
+                      onChange={(e) => setNewBalance(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSaveBalance()}
+                      className="input w-32 py-1.5 text-center figure"
+                      autoFocus
+                    />
+                    <button onClick={handleSaveBalance} className="btn-icon text-lime" aria-label="Save">
+                      <Check size={15} />
+                    </button>
+                    <button onClick={() => setEditingBalance(false)} className="btn-icon" aria-label="Cancel">
+                      <X size={15} />
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setNewBalance(String(balance.base_balance));
+                      setEditingBalance(true);
+                    }}
+                    className="group flex items-center gap-1.5 figure text-paper"
+                    title="Edit opening balance"
+                  >
+                    {formatCurrency(balance.base_balance)}
+                    <Pencil size={12} className="text-faint transition-colors group-hover:text-lime" />
+                  </button>
+                )}
               </div>
-            )}
-          </div>
+              {balance.new_collections > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted">+ EMIs</span>
+                  <span className="figure text-lime">{formatCurrency(balance.new_collections)}</span>
+                </div>
+              )}
+              {balance.new_lending > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted">− Lent</span>
+                  <span className="figure text-amber">{formatCurrency(balance.new_lending)}</span>
+                </div>
+              )}
+            </Reveal>
+          )}
         </div>
-      </div>
 
-      {/* Stat Cards */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        {statCards.map((card) => (
-          <div
-            key={card.label}
-            className={`group relative overflow-hidden rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg sm:p-5 ${card.shadow}`}
-          >
+        {monthly && (
+          <Reveal delay={260} className="card p-6">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-slate-500 sm:text-sm">
-                {card.label}
-              </p>
-              <div
-                className={`flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-md sm:h-10 sm:w-10 ${card.gradient} ${card.shadow}`}
-              >
-                <card.icon size={17} />
-              </div>
+              <p className="eyebrow">{monthly.month}</p>
+              <span className="chip-muted">{monthly.emis.length} EMIs</span>
             </div>
-            <p className="mt-2 text-lg font-bold text-slate-800 sm:mt-3 sm:text-2xl">
-              {card.value}
+            <p className="display mt-6 text-7xl">
+              {monthPct}
+              <span className="text-4xl text-muted">%</span>
             </p>
-            <div className={`absolute -bottom-4 -right-4 h-20 w-20 rounded-full opacity-[0.04] transition-opacity group-hover:opacity-[0.08] ${card.lightBg}`} />
-          </div>
+            <p className="mt-1 text-sm text-muted">collected this month</p>
+            <ProgressBar value={monthPct} className="mt-6" />
+            <div className="mt-4 flex justify-between text-xs">
+              <span className="figure text-paper">{formatCurrency(monthly.collected_total)}</span>
+              <span className="figure text-muted">of {formatCurrency(monthly.expected_total)}</span>
+            </div>
+          </Reveal>
+        )}
+      </section>
+
+      <Reveal delay={320}>
+        <Ticker
+          items={[
+            ["Lent", formatCurrency(stats.total_principal_given)],
+            ["Expected", formatCurrency(stats.total_expected_return)],
+            ["Collected", formatCurrency(stats.total_collected)],
+            ["Pending", formatCurrency(stats.total_pending)],
+            ["Active loans", stats.active_loans],
+            ["Completed", stats.completed_loans],
+            ["Overdue", overdue?.count ?? 0],
+          ]}
+        />
+      </Reveal>
+
+      {/* Stat tiles */}
+      <section className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.07] lg:grid-cols-4">
+        {tiles.map((t, i) => (
+          <Reveal key={t.label} delay={380 + i * 60} className="bg-ink-950 p-5 sm:p-6">
+            <p className="eyebrow">{t.label}</p>
+            <p className={`figure mt-5 text-xl sm:text-3xl ${t.accent ? "text-lime" : "text-paper"}`}>
+              {formatCurrency(t.value)}
+            </p>
+            <p className="mt-2 text-xs text-muted">{t.note}</p>
+          </Reveal>
         ))}
-      </div>
+      </section>
 
       {/* Overdue */}
       {overdue && overdue.count > 0 && (
-        <div className="mb-6 overflow-hidden rounded-xl border border-red-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-red-100 bg-red-50/60 px-5 py-4">
-            <div className="flex items-center gap-2.5">
-              <AlertCircle size={18} className="text-red-600" />
-              <h3 className="text-base font-semibold text-red-800">
+        <Reveal delay={420} className="overflow-hidden rounded-2xl border border-coral/25 bg-coral/[0.04]">
+          <div className="flex flex-wrap items-end justify-between gap-4 px-5 pb-4 pt-6 sm:px-6">
+            <div>
+              <p className="eyebrow text-coral">Needs attention</p>
+              <h3 className="display mt-2 text-3xl">
                 {overdue.count} overdue EMI{overdue.count > 1 ? "s" : ""}
               </h3>
             </div>
-            <span className="text-sm font-bold text-red-700">
-              {formatCurrency(overdue.total_outstanding)}
-            </span>
+            <p className="figure text-2xl text-coral">{formatCurrency(overdue.total_outstanding)}</p>
           </div>
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-coral/10 border-t border-coral/10">
             {overdue.items.slice(0, 5).map((item) => (
               <Link
                 key={`${item.loan_id}-${item.month_number}`}
                 to={`/loans/${item.loan_id}`}
-                className="flex items-center justify-between px-5 py-3 text-sm hover:bg-slate-50/80"
+                className="row-link"
               >
-                <div>
-                  <p className="font-medium text-slate-700">{item.borrower_name}</p>
-                  <p className="text-xs text-slate-400">
-                    Due {formatDayMonth(item.due_date)} · {item.days_overdue} days late
-                  </p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <Avatar name={item.borrower_name} size="sm" />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-paper">{item.borrower_name}</p>
+                    <p className="text-xs text-muted">
+                      Due {formatDayMonth(item.due_date)} · {item.days_overdue} days late
+                    </p>
+                  </div>
                 </div>
-                <span className="font-semibold text-red-600">{formatCurrency(item.outstanding)}</span>
+                <span className="figure text-sm text-coral">{formatCurrency(item.outstanding)}</span>
               </Link>
             ))}
           </div>
           {overdue.count > 5 && (
-            <Link to="/loans?filter=overdue" className="block px-5 py-3 text-center text-sm font-medium text-red-700 hover:bg-red-50/60">
-              View all overdue loans
+            <Link
+              to="/loans?filter=overdue"
+              className="block border-t border-coral/10 px-6 py-4 text-center text-sm text-coral hover:bg-coral/[0.06]"
+            >
+              View all {overdue.count} overdue
             </Link>
           )}
-        </div>
+        </Reveal>
       )}
 
-      {/* Monthly Collection */}
-      {monthly && (
-        <div className="mb-6 overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/20">
-                <CalendarDays size={15} />
-              </div>
-              <h3 className="text-base font-semibold text-slate-800">
-                {monthly.month} Collection
-              </h3>
-            </div>
-            <div className="flex items-center gap-3 text-sm">
-              <span className="hidden text-slate-400 sm:inline">
-                {formatCurrency(monthly.collected_total)} of{" "}
-                {formatCurrency(monthly.expected_total)}
-              </span>
-              {monthly.expected_total > 0 && (
-                <span className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-2.5 py-1 text-xs font-bold text-white shadow-sm shadow-emerald-500/20">
-                  {Math.round(
-                    (monthly.collected_total / monthly.expected_total) * 100
-                  )}
-                  %
-                </span>
-              )}
-            </div>
-          </div>
-
-          {monthly.expected_total > 0 && (
-            <div className="px-5 pt-4">
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-3">
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-blue-500">
-                    Expected
-                  </p>
-                  <p className="mt-1 text-sm font-bold text-blue-700 sm:text-base">
-                    {formatCurrency(monthly.expected_total)}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 p-3">
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-emerald-500">
-                    Collected
-                  </p>
-                  <p className="mt-1 text-sm font-bold text-emerald-700 sm:text-base">
-                    {formatCurrency(monthly.collected_total)}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 p-3">
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-amber-500">
-                    Pending
-                  </p>
-                  <p className="mt-1 text-sm font-bold text-amber-700 sm:text-base">
-                    {formatCurrency(monthly.pending_total)}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all"
-                  style={{
-                    width: `${Math.min(100, (monthly.collected_total / monthly.expected_total) * 100)}%`,
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {monthly.emis.length === 0 ? (
-            <div className="px-5 py-8 text-center text-sm text-slate-400">
-              No EMIs due this month
-            </div>
-          ) : (
-            <div className="mt-3 divide-y divide-slate-100">
-              {[...monthly.emis]
-                .sort((a, b) => a.due_date.localeCompare(b.due_date))
-                .map((emi) => {
-                  const dateLabel = formatDayMonth(emi.due_date);
-                  return (
-                <Link
-                  key={`${emi.loan_id}-${emi.month_number}`}
-                  to={`/loans/${emi.loan_id}`}
-                  className="flex items-center justify-between px-5 py-3.5 transition-colors hover:bg-slate-50/80"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${
-                        emi.paid
-                          ? "bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-700"
-                          : "bg-gradient-to-br from-amber-100 to-orange-100 text-amber-700"
-                      }`}
-                    >
-                      {emi.borrower_name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-700">
-                        {emi.borrower_name}
-                      </p>
-                      <p className="text-xs text-slate-400">
-                        <span className="font-medium text-slate-500">{dateLabel}</span>
-                        {" "}&middot; Month {emi.month_number}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-sm font-semibold ${
-                        emi.paid ? "text-emerald-600" : "text-amber-600"
-                      }`}
-                    >
-                      {formatCurrency(emi.emi_amount)}
-                    </span>
-                    {emi.paid ? (
-                      <CheckCircle2 size={16} className="text-emerald-500" />
-                    ) : (
-                      <Clock size={16} className="text-amber-400" />
-                    )}
-                  </div>
-                </Link>
-                  );
-                })}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Quick Stats */}
-        <div className="lg:col-span-1">
-          <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-slate-800">
-              Quick Stats
-            </h3>
-            <div className="mt-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500">Active Loans</span>
-                <span className="rounded-lg bg-emerald-50 px-2.5 py-1 text-lg font-bold text-emerald-600">
-                  {stats.active_loans}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500">Completed</span>
-                <span className="rounded-lg bg-slate-50 px-2.5 py-1 text-lg font-bold text-slate-600">
-                  {stats.completed_loans}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500">Total Loans</span>
-                <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-lg font-bold text-blue-600">
-                  {stats.total_loans}
-                </span>
-              </div>
-              {stats.total_expected_return > 0 && (
-                <div className="mt-2 border-t border-slate-100 pt-4">
-                  <div className="mb-2 flex items-center justify-between text-sm">
-                    <span className="text-slate-500">Collection Progress</span>
-                    <span className="font-bold text-emerald-600">
-                      {Math.round(
-                        (stats.total_collected / stats.total_expected_return) *
-                          100
-                      )}
-                      %
-                    </span>
-                  </div>
-                  <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all"
-                      style={{
-                        width: `${Math.min(100, (stats.total_collected / stats.total_expected_return) * 100)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Active Loans */}
-        <div className="lg:col-span-2">
-          <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <h3 className="text-base font-semibold text-slate-800">
-                Active Loans
-              </h3>
-              <Link
-                to="/loans"
-                className="flex items-center gap-1 text-sm font-medium text-emerald-600 transition-colors hover:text-emerald-700"
-              >
-                View all <ArrowRight size={14} />
-              </Link>
-            </div>
-            {activeLoans.length === 0 ? (
-              <div className="flex flex-col items-center justify-center px-5 py-12 text-center">
-                <AlertCircle size={40} className="mb-3 text-slate-300" />
-                <p className="text-sm text-slate-500">No active loans yet</p>
-                <Link
-                  to="/add-loan"
-                  className="mt-3 text-sm font-medium text-emerald-600 hover:text-emerald-700"
-                >
-                  Create your first loan
-                </Link>
-              </div>
+      <section className="grid gap-6 lg:grid-cols-2">
+        {/* This month */}
+        {monthly && (
+          <Reveal delay={460} className="card overflow-hidden">
+            <SectionTitle
+              action={<span className="eyebrow">{formatCurrency(monthly.pending_total)} left</span>}
+            >
+              This <em className="text-muted">month</em>
+            </SectionTitle>
+            {monthly.emis.length === 0 ? (
+              <p className="px-6 pb-10 pt-4 text-sm text-muted">No EMIs due this month.</p>
             ) : (
-              <div className="divide-y divide-slate-100">
-                {activeLoans.slice(0, 5).map((loan) => {
-                  const progress =
-                    loan.total_return > 0
-                      ? (loan.total_paid / loan.total_return) * 100
-                      : 0;
-                  return (
+              <div className="max-h-[440px] divide-y divide-white/[0.06] overflow-y-auto border-t border-white/[0.06] scrollbar-thin">
+                {[...monthly.emis]
+                  .sort((a, b) => a.due_date.localeCompare(b.due_date))
+                  .map((emi) => (
                     <Link
-                      key={loan.id}
-                      to={`/loans/${loan.id}`}
-                      className="flex items-center justify-between px-5 py-3.5 transition-colors hover:bg-slate-50/80"
+                      key={`${emi.loan_id}-${emi.month_number}`}
+                      to={`/loans/${emi.loan_id}`}
+                      className="row-link"
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-teal-100 text-sm font-bold text-emerald-700">
-                            {loan.borrower_name.charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800">
-                              {loan.borrower_name}
-                            </p>
-                            <p className="text-xs text-slate-400">
-                              {formatCurrency(loan.principal)} &middot;{" "}
-                              {loan.months_paid}/{loan.total_months} paid
-                            </p>
-                          </div>
+                      <div className="flex min-w-0 items-center gap-4">
+                        <span className="w-12 shrink-0 font-mono text-xs text-muted">
+                          {formatDayMonth(emi.due_date)}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm text-paper">{emi.borrower_name}</p>
+                          <p className="text-xs text-faint">Month {emi.month_number}</p>
                         </div>
                       </div>
-                      <div className="ml-4 flex items-center gap-4">
-                        <div className="hidden w-24 sm:block">
-                          <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500"
-                              style={{ width: `${progress}%` }}
-                            />
-                          </div>
-                        </div>
-                        <span className="text-sm font-semibold text-slate-700">
-                          {formatCurrency(loan.remaining)}
+                      <div className="flex items-center gap-3">
+                        <span className={`figure text-sm ${emi.paid ? "text-muted line-through decoration-faint" : "text-paper"}`}>
+                          {formatCurrency(emi.emi_amount)}
                         </span>
-                        <ArrowRight
-                          size={14}
-                          className="hidden text-slate-300 sm:block"
-                        />
+                        {emi.paid ? (
+                          <span className="chip-lime">Paid</span>
+                        ) : emi.status === "partial" ? (
+                          <span className="chip-amber">Partial</span>
+                        ) : (
+                          <span className="chip-muted">Due</span>
+                        )}
                       </div>
                     </Link>
-                  );
-                })}
+                  ))}
               </div>
             )}
-          </div>
-        </div>
-      </div>
+          </Reveal>
+        )}
+
+        {/* Active loans */}
+        <Reveal delay={520} className="card overflow-hidden">
+          <SectionTitle
+            action={
+              <Link to="/loans" className="link-underline text-sm">
+                All loans <ArrowUpRight size={14} />
+              </Link>
+            }
+          >
+            Active <em className="text-muted">loans</em>
+          </SectionTitle>
+          {activeLoans.length === 0 ? (
+            <div className="border-t border-white/[0.06] px-6 py-10">
+              <p className="text-sm text-muted">No active loans yet.</p>
+              <Link to="/add-loan" className="btn-primary mt-5">
+                <Plus size={16} /> Create your first loan
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
+              {activeLoans.slice(0, 6).map((loan) => {
+                const progress = pct(loan.total_paid, loan.total_return);
+                return (
+                  <Link key={loan.id} to={`/loans/${loan.id}`} className="row-link group">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <Avatar name={loan.borrower_name} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-paper">{loan.borrower_name}</p>
+                        <div className="mt-2 flex items-center gap-3">
+                          <ProgressBar value={progress} className="w-24" />
+                          <span className="font-mono text-[11px] text-muted">
+                            {loan.months_paid}/{loan.total_months}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="figure text-sm text-paper">{formatCurrency(loan.remaining)}</p>
+                        <p className="text-[11px] text-faint">remaining</p>
+                      </div>
+                      <ArrowUpRight
+                        size={16}
+                        className="text-faint transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-lime"
+                      />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </Reveal>
+      </section>
     </div>
   );
 }

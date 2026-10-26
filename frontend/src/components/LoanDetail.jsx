@@ -1,16 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  AlertTriangle,
-  IndianRupee,
-  Calendar,
-  Trash2,
-  Plus,
-  Pencil,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Trash2, Plus, Pencil, Check } from "lucide-react";
 import {
   getLoan,
   addPayment,
@@ -27,34 +17,13 @@ import {
   errorMessage,
 } from "../lib/format";
 import { useToast } from "./Toast";
+import { Avatar, EmptyState, LoanStatusChip, Modal, PageLoader, ProgressBar, Reveal } from "./ui";
 
-const inputClass =
-  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100";
-
-function rowStyle(month) {
-  if (month.status === "paid") return { row: "bg-emerald-50/40", badge: "bg-emerald-100 text-emerald-700" };
-  if (month.overdue) return { row: "bg-red-50/40", badge: "bg-red-100 text-red-700" };
-  if (month.status === "partial") return { row: "bg-amber-50/40", badge: "bg-amber-100 text-amber-700" };
-  return { row: "", badge: "bg-slate-100 text-slate-500" };
-}
-
-function Modal({ title, subtitle, onClose, children }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="mx-4 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-slate-800">{title}</h3>
-            {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Close">
-            <X size={18} />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
+function monthTone(month) {
+  if (month.status === "paid") return { dot: "bg-lime border-lime", chip: <span className="chip-lime">Paid</span> };
+  if (month.overdue) return { dot: "bg-coral border-coral", chip: <span className="chip-coral">Overdue</span> };
+  if (month.status === "partial") return { dot: "bg-amber border-amber", chip: <span className="chip-amber">Partial</span> };
+  return { dot: "bg-ink-950 border-white/25", chip: null };
 }
 
 function PaymentModal({ loanId, month, onClose, onSaved }) {
@@ -87,71 +56,56 @@ function PaymentModal({ loanId, month, onClose, onSaved }) {
 
   return (
     <Modal
-      title={editing ? "Update Payment" : "Record Payment"}
-      subtitle={`Month ${month.month_number} — ${formatMonthYear(month.due_date)} · EMI ${formatCurrency(month.expected_amount)}`}
+      title={editing ? "Update payment" : "Record payment"}
+      subtitle={`Month ${month.month_number} · ${formatMonthYear(month.due_date)} · EMI ${formatCurrency(month.expected_amount)}`}
       onClose={onClose}
     >
-      <div className="mt-5 space-y-4">
+      <div className="mt-6 space-y-5">
         {editing && (
-          <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            Already recorded: {formatCurrency(month.paid_amount)}. Enter the new total received for this month.
+          <p className="rounded-xl border border-amber/20 bg-amber/10 px-4 py-3 text-xs text-amber">
+            Already recorded {formatCurrency(month.paid_amount)}. Enter the new total received for this month.
           </p>
         )}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Amount received</label>
-          <div className="relative">
-            <IndianRupee size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <label className="label">Amount received</label>
+          <div className="flex items-baseline gap-2 border-b border-white/10 pb-2 focus-within:border-lime/60">
+            <span className="font-display text-3xl text-muted">₹</span>
             <input
               type="number"
               min="1"
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className={`${inputClass} pl-10`}
+              className="display w-full bg-transparent text-5xl outline-none"
+              autoFocus
             />
           </div>
-          <p className="mt-1 text-xs text-slate-400">Less than the EMI is saved as a partial payment.</p>
+          <p className="mt-2 text-xs text-muted">Less than the EMI is saved as a partial payment.</p>
         </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Payment date</label>
-          <div className="relative">
-            <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label">Date</label>
+            <input type="date" max={todayISO()} value={date} onChange={(e) => setDate(e.target.value)} className="input" />
+          </div>
+          <div>
+            <label className="label">Note</label>
             <input
-              type="date"
-              max={todayISO()}
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className={`${inputClass} pl-10`}
+              type="text"
+              maxLength={500}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. UPI"
+              className="input"
             />
           </div>
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">
-            Notes <span className="font-normal text-slate-400">(optional)</span>
-          </label>
-          <input
-            type="text"
-            maxLength={500}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g. Paid via UPI"
-            className={inputClass}
-          />
         </div>
       </div>
-      <div className="mt-6 flex gap-3">
-        <button
-          onClick={onClose}
-          className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
-        >
+      <div className="mt-8 flex gap-3">
+        <button onClick={onClose} className="btn-ghost flex-1">
           Cancel
         </button>
-        <button
-          onClick={submit}
-          disabled={submitting}
-          className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
-        >
-          {submitting ? "Saving..." : editing ? "Update" : "Confirm Payment"}
+        <button onClick={submit} disabled={submitting} className="btn-primary flex-1">
+          {submitting ? "Saving…" : editing ? "Update" : "Confirm"}
         </button>
       </div>
     </Modal>
@@ -196,11 +150,11 @@ function EditLoanModal({ loan, onClose, onSaved }) {
   };
 
   return (
-    <Modal title="Edit Loan" subtitle={`Loan #${loan.id}`} onClose={onClose}>
-      <div className="mt-5 space-y-4">
+    <Modal title="Edit loan" subtitle={`Loan #${loan.id}`} onClose={onClose}>
+      <div className="mt-6 space-y-4">
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-slate-700">Borrower</label>
-          <select value={borrowerId} onChange={(e) => setBorrowerId(e.target.value)} className={inputClass}>
+          <label className="label">Borrower</label>
+          <select value={borrowerId} onChange={(e) => setBorrowerId(e.target.value)} className="input">
             {borrowers.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -209,40 +163,36 @@ function EditLoanModal({ loan, onClose, onSaved }) {
           </select>
         </div>
         {locked ? (
-          <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          <p className="rounded-xl bg-white/[0.04] px-4 py-3 text-xs text-muted">
             Amount, rate, tenure and date are locked because payments have been recorded.
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Principal</label>
-              <input type="number" min="1" value={principal} onChange={(e) => setPrincipal(e.target.value)} className={inputClass} />
+              <label className="label">Principal</label>
+              <input type="number" min="1" value={principal} onChange={(e) => setPrincipal(e.target.value)} className="input figure" />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Rate (% / month)</label>
-              <input type="number" min="0" max="20" step="0.1" value={rate} onChange={(e) => setRate(e.target.value)} className={inputClass} />
+              <label className="label">Rate % / mo</label>
+              <input type="number" min="0" max="20" step="0.1" value={rate} onChange={(e) => setRate(e.target.value)} className="input figure" />
             </div>
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Months</label>
-              <input type="number" min="1" max="120" value={months} onChange={(e) => setMonths(e.target.value)} className={inputClass} />
+              <label className="label">Months</label>
+              <input type="number" min="1" max="120" value={months} onChange={(e) => setMonths(e.target.value)} className="input figure" />
             </div>
             <div className="col-span-2">
-              <label className="mb-1.5 block text-sm font-medium text-slate-700">Loan date</label>
-              <input type="date" value={loanDate} onChange={(e) => setLoanDate(e.target.value)} className={inputClass} />
+              <label className="label">Loan date</label>
+              <input type="date" value={loanDate} onChange={(e) => setLoanDate(e.target.value)} className="input" />
             </div>
           </div>
         )}
       </div>
-      <div className="mt-6 flex gap-3">
-        <button onClick={onClose} className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50">
+      <div className="mt-8 flex gap-3">
+        <button onClick={onClose} className="btn-ghost flex-1">
           Cancel
         </button>
-        <button
-          onClick={submit}
-          disabled={submitting}
-          className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
-        >
-          {submitting ? "Saving..." : "Save"}
+        <button onClick={submit} disabled={submitting} className="btn-primary flex-1">
+          {submitting ? "Saving…" : "Save"}
         </button>
       </div>
     </Modal>
@@ -282,190 +232,154 @@ export default function LoanDetail() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
-      </div>
-    );
-  }
-
-  if (!loan) {
-    return <div className="py-20 text-center text-slate-500">Loan not found</div>;
-  }
+  if (loading) return <PageLoader />;
+  if (!loan) return <EmptyState title="Loan not found" body="It may have been deleted." />;
 
   const progress = loan.total_return > 0 ? (loan.total_paid / loan.total_return) * 100 : 0;
+  const facts = [
+    ["Principal", formatCurrency(loan.principal)],
+    ["Total return", formatCurrency(loan.total_return)],
+    ["Monthly EMI", formatCurrency(loan.monthly_emi)],
+    [`Interest · ${loan.monthly_rate}%/mo`, formatCurrency(loan.total_return - loan.principal)],
+  ];
 
   return (
     <div>
-      <button
-        onClick={() => navigate(-1)}
-        className="mb-6 flex items-center gap-2 text-sm font-medium text-slate-500 transition-colors hover:text-slate-800"
-      >
-        <ArrowLeft size={16} /> Back
+      <button onClick={() => navigate(-1)} className="link-underline mb-10 text-sm text-muted">
+        <ArrowLeft size={15} /> Back
       </button>
 
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-xl font-bold text-emerald-700">
-              {loan.borrower_name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <Link to={`/borrowers/${loan.borrower_id}`} className="text-xl font-bold text-slate-800 hover:text-emerald-700">
-                {loan.borrower_name}
-              </Link>
-              <p className="mt-0.5 text-sm text-slate-400">
-                Loan #{loan.id} &middot; Given on {formatFullDate(loan.loan_date)}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 self-start">
-            {loan.overdue_count > 0 && (
-              <span className="flex items-center gap-1 rounded-full bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700">
-                <AlertTriangle size={14} /> {loan.overdue_count} overdue
-              </span>
-            )}
-            <span
-              className={`rounded-full px-3 py-1.5 text-sm font-semibold ${
-                loan.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
-              }`}
+      <Reveal className="flex flex-col gap-6 border-b border-white/[0.07] pb-10 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex items-center gap-5">
+          <Avatar name={loan.borrower_name} size="lg" />
+          <div>
+            <p className="eyebrow">
+              Loan #{loan.id} · {formatFullDate(loan.loan_date)}
+            </p>
+            <Link
+              to={`/borrowers/${loan.borrower_id}`}
+              className="display mt-2 block text-5xl transition-colors hover:text-lime sm:text-6xl"
             >
-              {loan.status === "active" ? "Active" : "Completed"}
-            </span>
-            <button
-              onClick={() => setEditOpen(true)}
-              className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
-              title="Edit loan"
-            >
-              <Pencil size={15} />
-            </button>
+              {loan.borrower_name}
+            </Link>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <LoanStatusChip status={loan.status} overdueCount={loan.overdue_count} />
+          <button onClick={() => setEditOpen(true)} className="btn-ghost px-4 py-2">
+            <Pencil size={14} /> Edit
+          </button>
+        </div>
+      </Reveal>
 
-        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div className="rounded-lg bg-blue-50 p-3.5">
-            <p className="text-xs font-medium text-blue-500">Principal</p>
-            <p className="mt-1 text-lg font-bold text-blue-700">{formatCurrency(loan.principal)}</p>
+      <Reveal delay={80} className="grid grid-cols-2 border-b border-white/[0.07] lg:grid-cols-4">
+        {facts.map(([label, value], i) => (
+          <div
+            key={label}
+            className={`py-6 ${i % 2 ? "pl-5" : "pr-5"} ${i > 0 ? "lg:border-l lg:border-white/[0.07] lg:pl-6" : ""} ${i % 2 ? "border-l border-white/[0.07]" : ""}`}
+          >
+            <p className="eyebrow">{label}</p>
+            <p className="figure mt-3 text-xl text-paper sm:text-2xl">{value}</p>
           </div>
-          <div className="rounded-lg bg-purple-50 p-3.5">
-            <p className="text-xs font-medium text-purple-500">Total Return</p>
-            <p className="mt-1 text-lg font-bold text-purple-700">{formatCurrency(loan.total_return)}</p>
-          </div>
-          <div className="rounded-lg bg-emerald-50 p-3.5">
-            <p className="text-xs font-medium text-emerald-500">Monthly EMI</p>
-            <p className="mt-1 text-lg font-bold text-emerald-700">{formatCurrency(loan.monthly_emi)}</p>
-          </div>
-          <div className="rounded-lg bg-amber-50 p-3.5">
-            <p className="text-xs font-medium text-amber-500">
-              Interest ({loan.monthly_rate}%/mo · {loan.interest_rate}%)
-            </p>
-            <p className="mt-1 text-lg font-bold text-amber-700">
-              {formatCurrency(loan.total_return - loan.principal)}
+        ))}
+      </Reveal>
+
+      <Reveal delay={140} className="py-8">
+        <div className="mb-3 flex items-end justify-between">
+          <div>
+            <p className="eyebrow">Collected</p>
+            <p className="display mt-2 text-4xl">
+              {formatCurrency(loan.total_paid)}{" "}
+              <em className="text-2xl text-muted">of {formatCurrency(loan.total_return)}</em>
             </p>
           </div>
+          <span className="display text-4xl text-lime">{Math.round(progress)}%</span>
         </div>
+        <ProgressBar value={progress} />
+      </Reveal>
 
-        <div className="mt-5">
-          <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="text-slate-500">
-              Collection: {formatCurrency(loan.total_paid)} of {formatCurrency(loan.total_return)}
-            </span>
-            <span className="font-semibold text-emerald-600">{Math.round(progress)}%</span>
-          </div>
-          <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.min(100, progress)}%` }} />
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-100 px-6 py-4">
-          <h3 className="text-base font-semibold text-slate-800">Payment Schedule</h3>
-          <p className="mt-0.5 text-xs text-slate-400">
-            EMI cycle: {formatMonthYear(loan.cycle_start_date)} &mdash;{" "}
-            {formatMonthYear(loan.schedule[loan.schedule.length - 1].due_date)}
+      <Reveal delay={200} className="card overflow-hidden">
+        <div className="flex flex-wrap items-end justify-between gap-2 px-5 pb-5 pt-6 sm:px-6">
+          <h3 className="display text-3xl">
+            Payment <em className="text-muted">schedule</em>
+          </h3>
+          <p className="eyebrow">
+            {formatMonthYear(loan.cycle_start_date)} — {formatMonthYear(loan.schedule[loan.schedule.length - 1].due_date)}
           </p>
         </div>
 
-        <div className="divide-y divide-slate-100">
-          {loan.schedule.map((month) => {
-            const style = rowStyle(month);
+        <ol className="relative border-t border-white/[0.06]">
+          {loan.schedule.map((month, idx) => {
+            const tone = monthTone(month);
+            const last = idx === loan.schedule.length - 1;
             return (
-              <div key={month.month_number} className={`px-4 py-4 sm:px-6 ${style.row}`}>
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold sm:h-10 sm:w-10 ${style.badge}`}
-                  >
-                    {month.month_number}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-700">
-                          {formatFullDate(month.due_date)}
-                          {month.overdue && <span className="ml-2 text-xs font-medium text-red-600">Overdue</span>}
-                          {month.status === "partial" && !month.overdue && (
-                            <span className="ml-2 text-xs font-medium text-amber-600">Partial</span>
-                          )}
-                        </p>
-                        <p className="mt-0.5 text-xs text-slate-400">
-                          {formatCurrency(month.expected_amount)} due
-                          {month.status === "partial" && <> &middot; {formatCurrency(month.outstanding)} outstanding</>}
-                          {month.notes && <> &middot; {month.notes}</>}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        {month.payment_id && (
-                          <div className="text-right">
-                            <div
-                              className={`flex items-center justify-end gap-1.5 text-sm font-semibold ${
-                                month.status === "paid" ? "text-emerald-600" : "text-amber-600"
-                              }`}
-                            >
-                              {month.status === "paid" && <CheckCircle2 size={15} />}
-                              {formatCurrency(month.paid_amount)}
-                            </div>
-                            <p className="text-xs text-slate-400">{formatFullDate(month.payment_date)}</p>
-                          </div>
-                        )}
-                        {month.payment_id ? (
-                          <>
-                            <button
-                              onClick={() => setPayMonth(month)}
-                              className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-                              title={month.status === "partial" ? "Top up payment" : "Edit payment"}
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDeletePayment(month.payment_id)}
-                              className="rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-red-50 hover:text-red-500"
-                              title="Remove payment"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </>
-                        ) : (
-                          loan.status === "active" && (
-                            <button
-                              onClick={() => setPayMonth(month)}
-                              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 sm:text-sm"
-                            >
-                              <Plus size={14} />
-                              <span className="hidden sm:inline">Record</span> Pay
-                            </button>
-                          )
-                        )}
-                      </div>
+              <li key={month.month_number} className="group relative flex gap-4 px-5 py-5 transition-colors hover:bg-white/[0.02] sm:px-6">
+                <div className="relative flex w-8 shrink-0 flex-col items-center">
+                  <span className="font-mono text-[11px] text-faint">{String(month.month_number).padStart(2, "0")}</span>
+                  <span className={`mt-2 flex h-3 w-3 items-center justify-center rounded-full border-2 ${tone.dot}`}>
+                    {month.status === "paid" && <Check size={8} strokeWidth={4} className="text-ink-950" />}
+                  </span>
+                  {!last && <span className="absolute top-10 h-[calc(100%-1rem)] w-px bg-white/[0.08]" />}
+                </div>
+
+                <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-paper">{formatFullDate(month.due_date)}</p>
+                      {tone.chip}
                     </div>
+                    <p className="mt-1 text-xs text-muted">
+                      <span className="figure">{formatCurrency(month.expected_amount)}</span> due
+                      {month.status === "partial" && <> · {formatCurrency(month.outstanding)} outstanding</>}
+                      {month.notes && <> · {month.notes}</>}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {month.payment_id && (
+                      <div className="mr-1 text-right">
+                        <p className={`figure text-sm ${month.status === "paid" ? "text-lime" : "text-amber"}`}>
+                          {formatCurrency(month.paid_amount)}
+                        </p>
+                        <p className="text-[11px] text-faint">{formatFullDate(month.payment_date)}</p>
+                      </div>
+                    )}
+                    {month.payment_id ? (
+                      <>
+                        <button
+                          onClick={() => setPayMonth(month)}
+                          className="btn-icon"
+                          title={month.status === "partial" ? "Top up payment" : "Edit payment"}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePayment(month.payment_id)}
+                          className="btn-icon text-faint hover:text-coral"
+                          title="Remove payment"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    ) : (
+                      loan.status === "active" && (
+                        <button
+                          onClick={() => setPayMonth(month)}
+                          className={`btn px-4 py-2 text-xs ${
+                            month.overdue ? "bg-coral text-ink-950 hover:bg-coral/90" : "border border-white/10 text-paper hover:border-lime hover:bg-lime hover:text-ink-950"
+                          }`}
+                        >
+                          <Plus size={14} /> Record
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
-      </div>
+        </ol>
+      </Reveal>
 
       {payMonth && (
         <PaymentModal

@@ -2,8 +2,100 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-ink-950 text-paper;
+    font-feature-settings: "ss01", "cv11";
+  }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0.045;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  ::selection {
+    @apply bg-lime text-ink-950;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+  }
+  input[type="number"]::-webkit-inner-spin-button {
+    opacity: 0.3;
+  }
+  input.display[type="number"] {
+    -moz-appearance: textfield;
+  }
+  input.display[type="number"]::-webkit-inner-spin-button,
+  input.display[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-white/[0.07] bg-ink-900;
+  }
+  .card-hover {
+    @apply transition-colors duration-300 hover:border-white/[0.16] hover:bg-ink-850;
+  }
+  .eyebrow {
+    @apply font-mono text-[11px] uppercase tracking-[0.18em] text-muted;
+  }
+  .display {
+    @apply font-display font-normal leading-[0.95] tracking-[-0.01em] text-paper;
+  }
+  .figure {
+    @apply font-mono tabular-nums tracking-tight;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply btn bg-lime text-ink-950 hover:bg-lime-soft active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply btn border border-white/10 text-paper hover:border-white/25 hover:bg-white/[0.04];
+  }
+  .btn-danger {
+    @apply btn border border-coral/30 text-coral hover:bg-coral/10;
+  }
+  .btn-icon {
+    @apply inline-flex items-center justify-center rounded-full p-2 text-muted transition-colors hover:bg-white/[0.06] hover:text-paper;
+  }
+  .input {
+    @apply w-full rounded-xl border border-white/10 bg-ink-850 px-4 py-3 text-sm text-paper outline-none transition placeholder:text-faint focus:border-lime/50 focus:ring-4 focus:ring-lime/10;
+  }
+  .label {
+    @apply eyebrow mb-2 block;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium;
+  }
+  .chip-lime {
+    @apply chip bg-lime/10 text-lime;
+  }
+  .chip-coral {
+    @apply chip bg-coral/10 text-coral;
+  }
+  .chip-amber {
+    @apply chip bg-amber/10 text-amber;
+  }
+  .chip-muted {
+    @apply chip bg-white/[0.06] text-muted;
+  }
+  .row-link {
+    @apply flex items-center justify-between gap-4 px-5 py-4 transition-colors duration-200 hover:bg-white/[0.03] sm:px-6;
+  }
+  .link-underline {
+    @apply relative inline-flex items-center gap-1 text-paper after:absolute after:-bottom-0.5 after:left-0 after:h-px after:w-full after:origin-right after:scale-x-0 after:bg-lime after:transition-transform after:duration-300 hover:after:origin-left hover:after:scale-x-100;
+  }
 }
 
 @layer utilities {
@@ -14,7 +106,20 @@ body {
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: #2a2a2e;
     border-radius: 3px;
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

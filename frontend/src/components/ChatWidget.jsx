@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Sparkles, X, Send, Loader2, Bot, User, Trash2 } from "lucide-react";
+import { Sparkles, X, ArrowUp, Loader2, Trash2 } from "lucide-react";
 import { sendChatMessage } from "../api";
 
 const SUGGESTIONS = [
@@ -51,75 +51,56 @@ export default function ChatWidget() {
 
   return (
     <>
-      {/* Floating button */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg shadow-violet-500/30 transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-violet-500/40"
+          aria-label="Open AI assistant"
+          className="group fixed bottom-24 right-5 z-40 flex h-12 items-center gap-2 rounded-full border border-white/10 bg-ink-800/90 pl-3 pr-4 text-sm text-paper shadow-2xl backdrop-blur-xl transition-all duration-300 hover:border-lime/40 md:bottom-8 md:right-8"
         >
-          <Sparkles size={24} />
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-lime text-ink-950 transition-transform duration-500 group-hover:rotate-[20deg]">
+            <Sparkles size={14} />
+          </span>
+          <span className="hidden sm:inline">Ask FinTrack</span>
         </button>
       )}
 
-      {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-6 right-6 z-50 flex h-[520px] w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-900 shadow-2xl shadow-black/40">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-700/50 bg-gradient-to-r from-violet-600/20 to-purple-600/20 px-4 py-3">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 shadow-md shadow-violet-500/20">
-                <Sparkles size={15} className="text-white" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-white">
-                  FinTrack AI
-                </h3>
-                <p className="text-[10px] text-slate-400">
-                  Ask about your portfolio
-                </p>
-              </div>
+        <div className="fixed inset-x-3 bottom-24 z-50 flex h-[min(560px,calc(100vh-8rem))] animate-rise flex-col overflow-hidden rounded-3xl border border-white/10 bg-ink-900/95 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-8 sm:w-[400px] md:bottom-8">
+          <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-4">
+            <div>
+              <p className="eyebrow">Assistant</p>
+              <h3 className="display mt-1 text-2xl">
+                Ask <em className="text-lime">anything</em>
+              </h3>
             </div>
             <div className="flex items-center gap-1">
               {messages.length > 0 && (
                 <button
                   onClick={() => setMessages([])}
                   title="Clear chat"
-                  className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                  className="btn-icon hover:text-coral"
                 >
                   <Trash2 size={16} />
                 </button>
               )}
-              <button
-                onClick={() => setOpen(false)}
-                className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
-              >
+              <button onClick={() => setOpen(false)} className="btn-icon" aria-label="Close">
                 <X size={18} />
               </button>
             </div>
           </div>
 
-          {/* Messages */}
-          <div
-            ref={scrollRef}
-            className="flex-1 space-y-3 overflow-y-auto px-4 py-4 scrollbar-thin"
-          >
+          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-5 py-5 scrollbar-thin">
             {messages.length === 0 && !loading && (
-              <div className="flex flex-col items-center pt-6 text-center">
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-violet-500/10">
-                  <Bot size={24} className="text-violet-400" />
-                </div>
-                <p className="text-sm font-medium text-slate-300">
-                  How can I help?
+              <div className="pt-2">
+                <p className="text-sm text-muted">
+                  I can read your loans, borrowers and payments. Try one of these:
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Ask me anything about your loans and borrowers
-                </p>
-                <div className="mt-5 flex flex-wrap justify-center gap-2">
+                <div className="mt-4 flex flex-col items-start gap-2">
                   {SUGGESTIONS.map((s) => (
                     <button
                       key={s}
                       onClick={() => send(s)}
-                      className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 transition-colors hover:border-violet-500/50 hover:text-violet-300"
+                      className="rounded-full border border-white/10 px-4 py-2 text-sm text-paper transition-colors hover:border-lime/40 hover:text-lime"
                     >
                       {s}
                     </button>
@@ -129,84 +110,56 @@ export default function ChatWidget() {
             )}
 
             {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex gap-2.5 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {msg.role === "ai" && (
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-500/15">
-                    <Bot size={14} className="text-violet-400" />
-                  </div>
-                )}
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                  className={`max-w-[85%] whitespace-pre-line rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
                     msg.role === "user"
-                      ? "rounded-br-md bg-emerald-600 text-white"
-                      : "rounded-bl-md bg-slate-800 text-slate-200"
+                      ? "rounded-br-md bg-lime text-ink-950"
+                      : "rounded-bl-md bg-white/[0.05] text-paper"
                   }`}
                 >
-                  {msg.text.split("\n").map((line, j) => (
-                    <span key={j}>
-                      {line}
-                      {j < msg.text.split("\n").length - 1 && <br />}
-                    </span>
-                  ))}
+                  {msg.text}
                 </div>
-                {msg.role === "user" && (
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15">
-                    <User size={14} className="text-emerald-400" />
-                  </div>
-                )}
               </div>
             ))}
 
             {loading && (
-              <div className="flex gap-2.5">
-                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-500/15">
-                  <Bot size={14} className="text-violet-400" />
-                </div>
-                <div className="rounded-2xl rounded-bl-md bg-slate-800 px-4 py-3">
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-2 w-2 animate-bounce rounded-full bg-violet-400 [animation-delay:0ms]" />
-                    <div className="h-2 w-2 animate-bounce rounded-full bg-violet-400 [animation-delay:150ms]" />
-                    <div className="h-2 w-2 animate-bounce rounded-full bg-violet-400 [animation-delay:300ms]" />
-                  </div>
+              <div className="flex">
+                <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-white/[0.05] px-4 py-3.5">
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-lime [animation-delay:0ms]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-lime [animation-delay:150ms]" />
+                  <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-lime [animation-delay:300ms]" />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Input */}
-          <div className="border-t border-slate-700/50 bg-slate-900/80 p-3 backdrop-blur">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                send();
-              }}
-              className="flex items-center gap-2"
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              send();
+            }}
+            className="flex items-center gap-2 border-t border-white/[0.07] p-3"
+          >
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask about your portfolio…"
+              disabled={loading}
+              maxLength={1000}
+              className="input rounded-full py-2.5"
+            />
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              aria-label="Send"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-lime text-ink-950 transition-opacity disabled:opacity-30"
             >
-              <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask about your portfolio..."
-                disabled={loading}
-                className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none transition-colors focus:border-violet-500 disabled:opacity-50"
-              />
-              <button
-                type="submit"
-                disabled={loading || !input.trim()}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-md shadow-violet-500/20 transition-all hover:shadow-lg disabled:opacity-40"
-              >
-                {loading ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Send size={16} />
-                )}
-              </button>
-            </form>
-          </div>
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={17} strokeWidth={2.5} />}
+            </button>
+          </form>
         </div>
       )}
     </>

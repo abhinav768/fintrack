@@ -31,10 +31,8 @@ export function ToastProvider({ children }) {
           <div
             key={t.id}
             role="status"
-            className={`pointer-events-auto flex items-center gap-2 rounded-xl border px-4 py-3 text-sm shadow-lg ${
-              t.type === "ok"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                : "border-red-200 bg-red-50 text-red-800"
+            className={`pointer-events-auto flex animate-rise items-center gap-3 rounded-2xl border bg-ink-800/95 px-4 py-3 text-sm text-paper shadow-2xl backdrop-blur ${
+              t.type === "ok" ? "border-lime/30 [&>svg]:text-lime" : "border-coral/40 [&>svg]:text-coral"
             }`}
           >
             {t.type === "ok" ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
