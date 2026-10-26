@@ -67,10 +67,15 @@ Migration `0002_numeric_money` converts `loans.principal`, `loans.total_return`,
 decimals in place. Python side uses `Decimal`; JSON responses serialize as
 numbers (float) for frontend compatibility.
 
-For **new** loans: `monthly_emi = round(total_return / months, 2)`, and the
+For all loans: `monthly_emi = round(total_return / months, 2)`, and the
 schedule's final installment is `total_return - monthly_emi * (months - 1)` so the
-schedule sums exactly to `total_return`. Existing loans use their stored EMI for
-every month (unchanged behavior).
+schedule sums exactly to `total_return`. For existing loans this moves the last
+installment by at most a few paise, well inside the ₹0.50 "paid" tolerance, so no
+existing payment changes status.
+
+Added during implementation: `POST /api/auth/change-password` plus a Settings
+form, because the original `migrate_add_users.py` seeded a default password and
+there was no way to change it.
 
 ### 3.2 Per-loan interest rate
 

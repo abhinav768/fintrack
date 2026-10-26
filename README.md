@@ -4,11 +4,48 @@ A web application to track personal lending with 4% monthly simple interest and 
 
 ## Business Logic
 
-- **Interest**: 4% simple interest per month on principal
+- **Interest**: simple interest per month on principal, set per loan (default 4%)
 - **Tenure**: Configurable (default 10 months), EMI cycle starts the month after the loan date
+- **Rounding**: EMIs are rounded to the paisa; the last installment absorbs the remainder
+- **Partial payments**: a month is *paid* once it reaches the EMI (within ₹0.50), otherwise *partial*
+- **Overdue**: any unpaid or partial installment whose due date (IST) has passed
+- **Account balance**: opening balance + EMIs collected − principal lent since the balance was last set
 - **Examples**:
   - ₹10,000 for 10 months → 40% interest → ₹14,000 total (₹1,400/mo)
-  - ₹20,000 for 15 months → 60% interest → ₹32,000 total (₹2,133/mo)
+  - ₹20,000 for 15 months → 60% interest → ₹32,000 total (₹2,133.33/mo, last ₹2,133.38)
+
+## Local Development
+
+```bash
+cd backend
+python3.12 -m venv .venv-dev && .venv-dev/bin/pip install -r requirements.txt -r requirements-dev.txt
+.venv-dev/bin/pytest -q                              # tests
+.venv-dev/bin/python bootstrap_db.py                 # create/upgrade local SQLite schema
+.venv-dev/bin/uvicorn main:app --reload              # API on :8000
+
+cd ../frontend && npm ci && npm run dev              # UI on :5173 (proxies /api)
+```
+
+Schema changes go through Alembic (`backend/alembic/versions`). The container runs
+`bootstrap_db.py` on startup, which stamps a pre-Alembic database at `0001_baseline`
+and then applies pending migrations.
+
+## Deploying database changes safely
+
+1. **Back up**: in Neon, create a branch of production named `backup-YYYY-MM-DD`. Leave it untouched.
+2. **Dry run**: create a second branch `dryrun-YYYY-MM-DD`, copy its connection string, then:
+   ```bash
+   cd backend
+   DATABASE_URL='<dryrun branch connection string>' .venv-dev/bin/python dryrun_check.py
+   ```
+   It migrates the branch and compares every profile's totals and balance before vs after.
+   Deploy only if it prints `ALL NUMBERS MATCH`.
+3. **Render env**: confirm `JWT_SECRET` is set to a long random value (changing it logs everyone out once).
+4. **Deploy**: push to `main`. Check `/api/health`, log in, compare dashboard numbers.
+5. **Reminders**: in cron-job.org, move the token from the URL to an `X-Notify-Token` header
+   (the old `?token=` URL keeps working for now).
+6. **Rollback**: redeploy the previous commit in Render; if data needs restoring, point
+   `DATABASE_URL` at the backup branch or restore it in Neon.
 
 ## Tech Stack
 
