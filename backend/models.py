@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, Date, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Numeric, Date, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 
@@ -46,10 +46,10 @@ class Loan(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     borrower_id = Column(Integer, ForeignKey("borrowers.id"), nullable=False)
-    principal = Column(Float, nullable=False)
-    interest_rate = Column(Float, default=40.0)
-    total_return = Column(Float, nullable=False)
-    monthly_emi = Column(Float, nullable=False)
+    principal = Column(Numeric(14, 2), nullable=False)
+    interest_rate = Column(Numeric(6, 2), default=40)
+    total_return = Column(Numeric(14, 2), nullable=False)
+    monthly_emi = Column(Numeric(14, 2), nullable=False)
     total_months = Column(Integer, default=10)
     loan_date = Column(Date, nullable=False)
     cycle_start_date = Column(Date, nullable=False)
@@ -65,10 +65,11 @@ class Loan(Base):
 
 class Payment(Base):
     __tablename__ = "payments"
+    __table_args__ = (UniqueConstraint("loan_id", "month_number", name="uq_payments_loan_month"),)
 
     id = Column(Integer, primary_key=True, index=True)
     loan_id = Column(Integer, ForeignKey("loans.id"), nullable=False)
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric(14, 2), nullable=False)
     month_number = Column(Integer, nullable=False)
     payment_date = Column(Date, nullable=False)
     notes = Column(String, nullable=True)

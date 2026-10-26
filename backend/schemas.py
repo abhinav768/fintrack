@@ -1,8 +1,11 @@
 import re
 from datetime import date
+from decimal import Decimal
 from typing import Annotated, Optional
 
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from pydantic import AfterValidator, BaseModel, Field, StringConstraints, field_validator
+
+from services.money import to_money
 
 MAX_AMOUNT = 1_000_000_000
 
@@ -18,22 +21,47 @@ class BorrowerCreate(BaseModel):
     phone: Optional[Phone] = None
 
 
+class BorrowerUpdate(BaseModel):
+    name: Name
+    phone: Optional[Phone] = None
+
+
+Amount = Annotated[Decimal, Field(gt=0, le=MAX_AMOUNT), AfterValidator(to_money)]
+MonthlyRate = Annotated[Decimal, Field(ge=0, le=20), AfterValidator(to_money)]
+Months = Annotated[int, Field(ge=1, le=120)]
+
+
 class LoanCreate(BaseModel):
     borrower_id: int
-    principal: float = Field(gt=0, le=MAX_AMOUNT)
+    principal: Amount
     loan_date: date
-    total_months: int = Field(10, ge=1, le=120)
+    total_months: Months = 10
+    monthly_rate: MonthlyRate = Decimal("4")
+
+
+class LoanUpdate(BaseModel):
+    borrower_id: Optional[int] = None
+    principal: Optional[Amount] = None
+    loan_date: Optional[date] = None
+    total_months: Optional[Months] = None
+    monthly_rate: Optional[MonthlyRate] = None
 
 
 class PaymentCreate(BaseModel):
-    amount: float = Field(gt=0, le=MAX_AMOUNT)
+    amount: Amount
     month_number: int = Field(ge=1)
     payment_date: date
     notes: Optional[Notes] = None
 
 
+class PaymentUpdate(BaseModel):
+    amount: Optional[Amount] = None
+    payment_date: Optional[date] = None
+    notes: Optional[Notes] = None
+
+
 class BalanceUpdate(BaseModel):
-    base_balance: float = Field(ge=-MAX_AMOUNT, le=MAX_AMOUNT)
+    base_balance: Annotated[Decimal, Field(ge=-MAX_AMOUNT, le=MAX_AMOUNT), AfterValidator(to_money)]
 
 
 class NotificationSettings(BaseModel):

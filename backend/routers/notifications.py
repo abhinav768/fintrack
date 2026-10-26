@@ -1,6 +1,3 @@
-from datetime import date
-
-from dateutil.relativedelta import relativedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -9,7 +6,8 @@ import schemas
 from auth import get_current_user
 from database import get_db
 from deps import get_config, profile_loans_query, require_profile, set_config
-from services import notify
+from services import notify, timeutil
+from services.schedule import build_schedule
 
 router = APIRouter(prefix="/api")
 
@@ -75,15 +73,13 @@ def send_daily_reminders(token: str = Query(...), db: Session = Depends(get_db))
         if not topic:
             continue
 
-        today = date.today()
+        today = timeutil.today()
         loans = profile_loans_query(db, p.id).filter(models.Loan.status == "active").all()
         due_today = []
         for loan in loans:
-            payments_map = {pm.month_number: pm for pm in loan.payments}
-            for month_num in range(1, loan.total_months + 1):
-                due_date = loan.cycle_start_date + relativedelta(months=month_num - 1)
-                if due_date == today and month_num not in payments_map:
-                    due_today.append({"name": loan.borrower.name, "amount": loan.monthly_emi, "month": month_num})
+            for row in build_schedule(loan, today):
+                if row["due_date"] == str(today) and row["status"] != "paid":
+                    due_today.append({"name": loan.borrower.name, "amount": row["outstanding"], "month": row["month_number"]})
 
         if not due_today:
             continue

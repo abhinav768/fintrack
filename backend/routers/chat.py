@@ -12,6 +12,7 @@ from auth import get_current_user
 from database import get_db
 from deps import require_profile
 from ratelimit import limiter, user_or_ip
+from services import timeutil
 
 logger = logging.getLogger("fintrack")
 router = APIRouter(prefix="/api")
@@ -21,7 +22,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 def build_profile_context(db: Session, profile: models.Profile) -> str:
     """Build a detailed text summary of the profile's financial data."""
-    today = date.today()
+    today = timeutil.today()
     borrowers = db.query(models.Borrower).filter(models.Borrower.profile_id == profile.id).all()
 
     lines = [f"Profile: {profile.name}", f"Today: {today}", ""]

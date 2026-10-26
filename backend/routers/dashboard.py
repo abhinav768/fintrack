@@ -1,6 +1,5 @@
-from datetime import date
+from decimal import Decimal
 
-from dateutil.relativedelta import relativedelta
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -10,15 +9,19 @@ import schemas
 from auth import get_current_user
 from database import get_db
 from deps import get_config, profile_loans_query, require_profile, set_config
+from routers.loans import loans_with_details
+from services import timeutil
+from services.money import to_money
+from services.schedule import build_schedule
 
 router = APIRouter(prefix="/api")
 
 INITIAL_BALANCE = 53600.0
 
 
-def _total_collected(db: Session, profile_id: int) -> float:
+def _total_collected(db: Session, profile_id: int) -> Decimal:
     loan_ids = profile_loans_query(db, profile_id).with_entities(models.Loan.id)
-    return float(
+    return to_money(
         db.query(func.coalesce(func.sum(models.Payment.amount), 0))
         .filter(models.Payment.loan_id.in_(loan_ids))
         .scalar()
@@ -33,9 +36,9 @@ def get_dashboard(
 ):
     profile = require_profile(profile_id, user, db)
     loans = profile_loans_query(db, profile.id).all()
-    total_principal = sum(l.principal for l in loans)
-    total_expected = sum(l.total_return for l in loans)
-    total_collected = _total_collected(db, profile.id) if loans else 0.0
+    total_principal = sum((to_money(l.principal) for l in loans), Decimal("0"))
+    total_expected = sum((to_money(l.total_return) for l in loans), Decimal("0"))
+    total_collected = _total_collected(db, profile.id)
 
     return {
         "total_principal_given": total_principal,
@@ -55,8 +58,8 @@ def get_balance(
     db: Session = Depends(get_db),
 ):
     profile = require_profile(profile_id, user, db)
-    base = float(get_config(db, "base_balance", profile.id, str(INITIAL_BALANCE)))
-    snapshot = float(get_config(db, "collections_snapshot", profile.id, "0"))
+    base = to_money(get_config(db, "base_balance", profile.id, str(INITIAL_BALANCE)))
+    snapshot = to_money(get_config(db, "collections_snapshot", profile.id, "0"))
     total_collected = _total_collected(db, profile.id)
     new_collections = total_collected - snapshot
     return {
@@ -89,30 +92,28 @@ def get_monthly_collection(
     db: Session = Depends(get_db),
 ):
     profile = require_profile(profile_id, user, db)
-    today = date.today()
-    loans = profile_loans_query(db, profile.id).all()
+    today = timeutil.today()
+    month_prefix = today.strftime("%Y-%m-")
     emis_due = []
-    expected_total = 0.0
-    collected_total = 0.0
+    expected_total = Decimal("0")
+    collected_total = Decimal("0")
 
-    for loan in loans:
-        payments_map = {p.month_number: p for p in loan.payments}
-        for month_num in range(1, loan.total_months + 1):
-            due_date = loan.cycle_start_date + relativedelta(months=month_num - 1)
-            if due_date.year == today.year and due_date.month == today.month:
-                payment = payments_map.get(month_num)
-                paid_amount = payment.amount if payment else 0
-                expected_total += loan.monthly_emi
-                collected_total += paid_amount
-                emis_due.append({
-                    "loan_id": loan.id,
-                    "borrower_name": loan.borrower.name,
-                    "month_number": month_num,
-                    "emi_amount": loan.monthly_emi,
-                    "paid": payment is not None,
-                    "paid_amount": paid_amount,
-                    "due_date": str(due_date),
-                })
+    for loan in loans_with_details(db, profile.id).all():
+        for row in build_schedule(loan, today):
+            if not row["due_date"].startswith(month_prefix):
+                continue
+            expected_total += row["expected_amount"]
+            collected_total += row["paid_amount"]
+            emis_due.append({
+                "loan_id": loan.id,
+                "borrower_name": loan.borrower.name,
+                "month_number": row["month_number"],
+                "emi_amount": row["expected_amount"],
+                "status": row["status"],
+                "paid": row["paid"],
+                "paid_amount": row["paid_amount"],
+                "due_date": row["due_date"],
+            })
 
     return {
         "month": today.strftime("%B %Y"),
