@@ -231,11 +231,8 @@ export default function Dashboard() {
             <span className="mx-2 text-faint">/</span>
             {greeting()}, {profile?.name}
           </Reveal>
-          <Reveal delay={80} className="mt-8 flex items-center justify-between gap-4">
-            <p className="text-sm text-muted">Total on hand</p>
-            <button onClick={() => setMoveOpen(true)} className="btn-ghost px-4 py-2 text-xs">
-              <ArrowLeftRight size={14} /> Move money
-            </button>
+          <Reveal as="p" delay={80} className="mt-8 text-sm text-muted">
+            Total on hand · bank + cash
           </Reveal>
           <Reveal delay={140}>
             <h1 className="display mt-2 break-all text-[3.75rem] sm:text-8xl xl:text-[8.5rem]">
@@ -244,6 +241,15 @@ export default function Dashboard() {
                 symbolClass="mr-1 align-[0.55em] font-sans text-[0.32em] font-normal text-muted sm:mr-3"
               />
             </h1>
+          </Reveal>
+          <Reveal delay={180} className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <button
+              onClick={() => setMoveOpen(true)}
+              className="btn-primary px-6 py-3.5 text-sm shadow-[0_12px_32px_-12px_rgb(var(--lime))]"
+            >
+              <ArrowLeftRight size={18} strokeWidth={2.25} /> Move money
+            </button>
+            <span className="text-xs text-muted">Deposit cash to the bank, or withdraw to cash</span>
           </Reveal>
 
           {balance && (

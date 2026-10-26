@@ -1,3 +1,4 @@
+import leavesPhoto from "../assets/leaves-lime.webp";
 import { Wordmark } from "./Sidebar";
 import { Reveal, ThemeToggle } from "./ui";
 
@@ -6,17 +7,13 @@ const TICKER = ["Loans", "EMIs", "Borrowers", "Reminders", "Interest", "Collecti
 export default function AuthLayout({ eyebrow, title, accent, children, footer }) {
   return (
     <div className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
-      <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-line/[0.07] p-12 lg:flex">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.35]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgb(var(--line) / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--line) / 0.05) 1px, transparent 1px)",
-            backgroundSize: "64px 64px",
-            maskImage: "radial-gradient(ellipse at 30% 60%, black 20%, transparent 70%)",
-          }}
+      <aside className="dark relative hidden flex-col justify-between overflow-hidden bg-ink-950 p-12 text-paper lg:flex">
+        <img
+          src={leavesPhoto}
+          alt=""
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
         />
-        <div className="pointer-events-none absolute -bottom-40 -left-40 h-[480px] w-[480px] rounded-full bg-lime/[0.07] blur-[120px]" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink-950 via-ink-950/80 to-ink-950/30" />
 
         <Wordmark className="relative text-4xl" />
 
