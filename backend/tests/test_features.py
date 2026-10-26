@@ -127,7 +127,7 @@ def test_export_payments_csv(api):
     rows = list(csv.DictReader(io.StringIO(api.get("/api/export/payments.csv").text)))
     assert rows == [{
         "payment_id": rows[0]["payment_id"], "loan_id": str(loan_id), "borrower": "Lee",
-        "month_number": "1", "amount": "1400.00", "payment_date": "2026-02-15", "notes": "",
+        "month_number": "1", "amount": "1400.00", "payment_date": "2026-02-15", "notes": "", "method": "online",
     }]
 
 

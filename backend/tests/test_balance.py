@@ -4,7 +4,7 @@ from alembic import command
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from helpers import create_loan
+from helpers import create_loan as _create_loan
 from services.balance import compute_balance
 from test_migrations import legacy_db
 
@@ -14,6 +14,10 @@ def pay(api, loan_id, month, amount):
         f"/api/loans/{loan_id}/payments",
         json={"amount": amount, "month_number": month, "payment_date": "2026-02-15"},
     )
+
+
+def create_loan(api, **kw):
+    return _create_loan(api, funding_source="collection", **kw)
 
 
 def test_new_profile_starts_at_zero_and_tracks_lending(api):

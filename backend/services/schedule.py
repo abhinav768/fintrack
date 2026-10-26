@@ -43,6 +43,7 @@ def build_schedule(loan: models.Loan, today: date) -> list[dict]:
             "payment_date": str(payment.payment_date) if payment else None,
             "payment_id": payment.id if payment else None,
             "notes": payment.notes if payment else None,
+            "method": (payment.method or "online") if payment else None,
         })
     return rows
 

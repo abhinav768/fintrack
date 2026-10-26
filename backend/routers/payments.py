@@ -58,6 +58,7 @@ def add_payment(
         month_number=payment.month_number,
         payment_date=payment.payment_date,
         notes=payment.notes,
+        method=payment.method,
     )
     loan.payments.append(db_payment)
     previous = loan.status
@@ -81,6 +82,7 @@ def add_payment(
         "amount": db_payment.amount,
         "month_number": db_payment.month_number,
         "payment_date": str(db_payment.payment_date),
+        "method": db_payment.method,
     }
 
 
@@ -102,6 +104,8 @@ def update_payment(
         payment.payment_date = data.payment_date
     if "notes" in data.model_fields_set:
         payment.notes = data.notes
+    if data.method is not None:
+        payment.method = data.method
     previous = loan.status
     refresh_loan_status(loan)
     db.commit()
@@ -112,6 +116,7 @@ def update_payment(
         "month_number": payment.month_number,
         "payment_date": str(payment.payment_date),
         "notes": payment.notes,
+        "method": payment.method or "online",
     }
 
 

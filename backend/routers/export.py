@@ -50,11 +50,12 @@ def export_loans(
             to_money(loan.principal), s["monthly_rate"], to_money(loan.total_return),
             to_money(loan.monthly_emi), loan.total_months, loan.loan_date, loan.cycle_start_date,
             loan.status, s["months_paid"], s["total_paid"], s["remaining"], s["overdue_count"],
+            s["funding_source"],
         ])
     header = [
         "loan_id", "borrower", "phone", "principal", "monthly_rate_pct", "total_return",
         "monthly_emi", "total_months", "loan_date", "cycle_start_date", "status",
-        "months_paid", "total_paid", "remaining", "overdue_installments",
+        "months_paid", "total_paid", "remaining", "overdue_installments", "funding_source",
     ]
     return _csv_response(header, rows, "fintrack-loans.csv")
 
@@ -71,7 +72,7 @@ def export_payments(
         for p in loan.payments:
             rows.append([
                 p.id, loan.id, _cell(loan.borrower.name), p.month_number,
-                to_money(p.amount), p.payment_date, _cell(p.notes),
+                to_money(p.amount), p.payment_date, _cell(p.notes), p.method or "online",
             ])
-    header = ["payment_id", "loan_id", "borrower", "month_number", "amount", "payment_date", "notes"]
+    header = ["payment_id", "loan_id", "borrower", "month_number", "amount", "payment_date", "notes", "method"]
     return _csv_response(header, rows, "fintrack-payments.csv")

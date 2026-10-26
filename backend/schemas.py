@@ -1,7 +1,7 @@
 import re
 from datetime import date
 from decimal import Decimal
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 
 from pydantic import AfterValidator, BaseModel, Field, StringConstraints, field_validator
 
@@ -31,12 +31,17 @@ MonthlyRate = Annotated[Decimal, Field(ge=0, le=20), AfterValidator(to_money)]
 Months = Annotated[int, Field(ge=1, le=120)]
 
 
+PaymentMethod = Literal["online", "cash"]
+FundingSource = Literal["capital", "collection", "cash"]
+
+
 class LoanCreate(BaseModel):
     borrower_id: int
     principal: Amount
     loan_date: date
     total_months: Months = 10
     monthly_rate: MonthlyRate = Decimal("4")
+    funding_source: FundingSource = "capital"
 
 
 class LoanUpdate(BaseModel):
@@ -45,6 +50,7 @@ class LoanUpdate(BaseModel):
     loan_date: Optional[date] = None
     total_months: Optional[Months] = None
     monthly_rate: Optional[MonthlyRate] = None
+    funding_source: Optional[FundingSource] = None
 
 
 class PaymentCreate(BaseModel):
@@ -52,16 +58,26 @@ class PaymentCreate(BaseModel):
     month_number: int = Field(ge=1)
     payment_date: date
     notes: Optional[Notes] = None
+    method: PaymentMethod = "online"
 
 
 class PaymentUpdate(BaseModel):
     amount: Optional[Amount] = None
     payment_date: Optional[date] = None
     notes: Optional[Notes] = None
+    method: Optional[PaymentMethod] = None
+
+
+class TransferCreate(BaseModel):
+    direction: Literal["deposit", "withdraw"]
+    amount: Amount
+    transfer_date: date
+    notes: Optional[Notes] = None
 
 
 class BalanceUpdate(BaseModel):
     base_balance: Annotated[Decimal, Field(ge=-MAX_AMOUNT, le=MAX_AMOUNT), AfterValidator(to_money)]
+    account: Literal["collection", "cash"] = "collection"
 
 
 Topic = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[A-Za-z0-9_-]{1,64}$")]

@@ -78,7 +78,10 @@ def test_borrower_delete_blocked_with_active_loan(api):
 
 def test_monthly_collection_shape(api):
     r = api.get("/api/monthly-collection").json()
-    assert set(r) == {"month", "expected_total", "collected_total", "pending_total", "emis"}
+    assert set(r) == {
+        "month", "expected_total", "collected_total", "collected_online", "collected_cash",
+        "pending_total", "emis",
+    }
 
 
 def test_profile_isolation(client):

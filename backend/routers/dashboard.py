@@ -68,7 +68,7 @@ def update_base_balance(
     db: Session = Depends(get_db),
 ):
     profile = require_profile(profile_id, user, db)
-    set_opening_balance(db, profile.id, data.base_balance)
+    set_opening_balance(db, profile.id, data.base_balance, data.account)
     db.commit()
     return compute_balance(db, profile.id)
 
@@ -84,14 +84,15 @@ def get_monthly_collection(
     month_prefix = today.strftime("%Y-%m-")
     emis_due = []
     expected_total = Decimal("0")
-    collected_total = Decimal("0")
+    collected = {"online": Decimal("0"), "cash": Decimal("0")}
 
     for loan in loans_with_details(db, profile.id).all():
         for row in build_schedule(loan, today):
             if not row["due_date"].startswith(month_prefix):
                 continue
             expected_total += row["expected_amount"]
-            collected_total += row["paid_amount"]
+            if row["method"]:
+                collected[row["method"]] += row["paid_amount"]
             emis_due.append({
                 "loan_id": loan.id,
                 "borrower_name": loan.borrower.name,
@@ -100,13 +101,17 @@ def get_monthly_collection(
                 "status": row["status"],
                 "paid": row["paid"],
                 "paid_amount": row["paid_amount"],
+                "method": row["method"],
                 "due_date": row["due_date"],
             })
 
+    collected_total = collected["online"] + collected["cash"]
     return {
         "month": today.strftime("%B %Y"),
         "expected_total": expected_total,
         "collected_total": collected_total,
+        "collected_online": collected["online"],
+        "collected_cash": collected["cash"],
         "pending_total": expected_total - collected_total,
         "emis": emis_due,
     }

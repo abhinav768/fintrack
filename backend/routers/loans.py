@@ -40,6 +40,7 @@ def loan_summary(loan: models.Loan, today) -> dict:
         "loan_date": str(loan.loan_date),
         "cycle_start_date": str(loan.cycle_start_date),
         "status": loan.status,
+        "funding_source": loan.funding_source or "collection",
         "months_paid": sum(1 for row in schedule if row["status"] == "paid"),
         "overdue_count": sum(1 for row in schedule if row["overdue"]),
         "total_paid": total_paid,
@@ -128,7 +129,7 @@ def create_loan(
     profile = require_profile(profile_id, user, db)
     borrower = get_profile_borrower(db, loan.borrower_id, profile)
 
-    db_loan = models.Loan(borrower_id=borrower.id, status="active")
+    db_loan = models.Loan(borrower_id=borrower.id, status="active", funding_source=loan.funding_source)
     apply_terms(db_loan, loan.principal, loan.monthly_rate, loan.total_months, loan.loan_date)
     db.add(db_loan)
     db.commit()
@@ -147,6 +148,7 @@ def create_loan(
         "monthly_emi": db_loan.monthly_emi,
         "loan_date": str(db_loan.loan_date),
         "cycle_start_date": str(db_loan.cycle_start_date),
+        "funding_source": db_loan.funding_source,
     }
 
 
@@ -181,6 +183,8 @@ def update_loan(
 
     if data.borrower_id is not None:
         loan.borrower_id = get_profile_borrower(db, data.borrower_id, profile).id
+    if data.funding_source is not None:
+        loan.funding_source = data.funding_source
 
     term_fields = (data.principal, data.monthly_rate, data.total_months, data.loan_date)
     if any(v is not None for v in term_fields):

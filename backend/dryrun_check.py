@@ -58,6 +58,39 @@ def legacy_snapshot(conn) -> dict:
     return result
 
 
+def anchored_snapshot(conn) -> dict:
+    """Numbers as release 0004 computed them: opening + payments after anchor - loans after anchor."""
+    result = {}
+    for (pid,) in conn.execute(text("SELECT id FROM profiles ORDER BY id")):
+        cfg = dict(conn.execute(text(
+            "SELECT key, value FROM app_config WHERE profile_id = :p AND key IN ('balance_opening', 'balance_anchor_at')"
+        ), {"p": pid}).fetchall())
+        anchor = cfg.get("balance_anchor_at")
+        scope = "JOIN loans l ON p.loan_id = l.id JOIN borrowers b ON l.borrower_id = b.id WHERE b.profile_id = :p"
+        args = {"p": pid, "a": anchor}
+        after_anchor = " AND p.created_at > :a" if anchor else ""
+        new_collections = conn.execute(text(f"SELECT COALESCE(SUM(p.amount), 0) FROM payments p {scope}{after_anchor}"), args).scalar()
+        new_lending = conn.execute(text(
+            "SELECT COALESCE(SUM(l.principal), 0) FROM loans l JOIN borrowers b ON l.borrower_id = b.id "
+            "WHERE b.profile_id = :p" + (" AND l.created_at > :a" if anchor else "")
+        ), args).scalar()
+        principal, expected, loans = conn.execute(text(
+            "SELECT COALESCE(SUM(l.principal), 0), COALESCE(SUM(l.total_return), 0), COUNT(*) "
+            "FROM loans l JOIN borrowers b ON l.borrower_id = b.id WHERE b.profile_id = :p"
+        ), {"p": pid}).one()
+        collected = conn.execute(text(f"SELECT COALESCE(SUM(p.amount), 0) FROM payments p {scope}"), {"p": pid}).scalar()
+        result[pid] = {
+            "rounded_rows": 0,
+            "loans": loans,
+            "total_lent": Decimal(str(principal)),
+            "total_expected": Decimal(str(expected)),
+            "total_collected": Decimal(str(collected)),
+            "balance": Decimal(cfg.get("balance_opening", "0")) + Decimal(str(new_collections)) - Decimal(str(new_lending)),
+            "cash": Decimal("0"),
+        }
+    return result
+
+
 def new_snapshot(session) -> dict:
     import models
     from services.balance import compute_balance
@@ -66,12 +99,14 @@ def new_snapshot(session) -> dict:
     result = {}
     for profile in session.query(models.Profile).order_by(models.Profile.id):
         loans = [l for b in profile.borrowers for l in b.loans]
+        balance = compute_balance(session, profile.id)
         result[profile.id] = {
             "loans": len(loans),
             "total_lent": sum((to_money(l.principal) for l in loans), Decimal("0")),
             "total_expected": sum((to_money(l.total_return) for l in loans), Decimal("0")),
             "total_collected": sum((to_money(p.amount) for l in loans for p in l.payments), Decimal("0")),
-            "balance": compute_balance(session, profile.id)["current_balance"],
+            "balance": balance["current_balance"],
+            "cash": balance["cash"]["balance"],
         }
     return result
 
@@ -80,14 +115,16 @@ def main() -> int:
     url = _url()
     engine = create_engine(url)
     tables = set(inspect(engine).get_table_names())
+    version = "0001_baseline"
     if "alembic_version" in tables:
         with engine.connect() as conn:
             version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-        if version != "0001_baseline":
-            sys.exit(f"This database is already migrated ({version}); use a fresh branch of production.")
+    snapshots = {"0001_baseline": legacy_snapshot, "0004_balance_anchor": anchored_snapshot}
+    if version not in snapshots:
+        sys.exit(f"No pre-migration check for version {version}; use a fresh copy of production.")
 
     with engine.connect() as conn:
-        before = legacy_snapshot(conn)
+        before = snapshots[version](conn)
 
     from bootstrap_db import bootstrap
     bootstrap(url)

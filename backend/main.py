@@ -14,7 +14,7 @@ from auth import check_jwt_secret
 from frontend_static import register_frontend
 from ratelimit import limiter
 from routers import (
-    auth, borrowers, chat, dashboard, export, health, loans, notifications, payments, profiles,
+    auth, borrowers, chat, dashboard, export, health, loans, notifications, payments, profiles, transfers,
 )
 from splunk_handler import setup_splunk_logging
 
@@ -58,7 +58,9 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-for module in (health, auth, profiles, dashboard, borrowers, loans, payments, notifications, chat, export):
+for module in (
+    health, auth, profiles, dashboard, borrowers, loans, payments, transfers, notifications, chat, export,
+):
     app.include_router(module.router)
 
 register_frontend(app, os.path.join(os.path.dirname(__file__), "static"))

@@ -26,6 +26,7 @@ class Profile(Base):
 
     user = relationship("User", back_populates="profiles")
     borrowers = relationship("Borrower", back_populates="profile", cascade="all, delete-orphan")
+    transfers = relationship("Transfer", cascade="all, delete-orphan")
 
 
 class Borrower(Base):
@@ -54,6 +55,7 @@ class Loan(Base):
     loan_date = Column(Date, nullable=False)
     cycle_start_date = Column(Date, nullable=False)
     status = Column(String, default="active")
+    funding_source = Column(String(12), nullable=True)
     created_at = Column(DateTime, default=utcnow_naive)
 
     borrower = relationship("Borrower", back_populates="loans")
@@ -73,9 +75,24 @@ class Payment(Base):
     month_number = Column(Integer, nullable=False)
     payment_date = Column(Date, nullable=False)
     notes = Column(String, nullable=True)
+    method = Column(String(10), nullable=True)
     created_at = Column(DateTime, default=utcnow_naive)
 
     loan = relationship("Loan", back_populates="payments")
+
+
+class Transfer(Base):
+    """Money moved between cash in hand and the collection account."""
+
+    __tablename__ = "transfers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    profile_id = Column(Integer, ForeignKey("profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    direction = Column(String(10), nullable=False)
+    amount = Column(Numeric(14, 2), nullable=False)
+    transfer_date = Column(Date, nullable=False)
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime, default=utcnow_naive)
 
 
 class AppConfig(Base):
