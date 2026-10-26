@@ -3,18 +3,32 @@ import os
 import time
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("fintrack")
 logger.setLevel(logging.INFO)
 
+from auth import check_jwt_secret
 from frontend_static import register_frontend
+from ratelimit import limiter
 from routers import auth, borrowers, chat, dashboard, loans, notifications, payments, profiles
 from splunk_handler import setup_splunk_logging
 
 app = FastAPI(title="Finance Tracker")
+app.state.limiter = limiter
 
 setup_splunk_logging()
+check_jwt_secret()
+
+
+@app.exception_handler(RateLimitExceeded)
+def rate_limited(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "Too many attempts. Please wait a few minutes and try again."},
+    )
 
 
 @app.middleware("http")

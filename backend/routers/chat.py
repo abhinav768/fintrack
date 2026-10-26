@@ -3,7 +3,7 @@ import os
 from datetime import date
 
 from dateutil.relativedelta import relativedelta
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 import models
@@ -11,6 +11,7 @@ import schemas
 from auth import get_current_user
 from database import get_db
 from deps import require_profile
+from ratelimit import limiter, user_or_ip
 
 logger = logging.getLogger("fintrack")
 router = APIRouter(prefix="/api")
@@ -115,7 +116,9 @@ def generate_reply(prompt: str) -> str:
 
 
 @router.post("/chat")
+@limiter.limit("20/hour", key_func=user_or_ip)
 def chat(
+    request: Request,
     data: schemas.ChatMessage,
     profile_id: int = Query(...),
     user: models.User = Depends(get_current_user),
@@ -141,9 +144,9 @@ def chat(
 
     try:
         reply = generate_reply(f"{system_prompt}\n\nUser question: {data.message}")
-    except Exception as e:
-        logger.error(f"Gemini API error: {e}")
-        raise HTTPException(status_code=502, detail=f"AI service error: {str(e)}")
+    except Exception:
+        logger.exception("Gemini API error")
+        raise HTTPException(status_code=502, detail="The AI assistant is temporarily unavailable. Please try again.")
 
     logger.info("AI chat: profile=%d, question=%s", profile.id, data.message[:80],
                 extra={"extra_fields": {

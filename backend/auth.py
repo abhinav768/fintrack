@@ -1,3 +1,4 @@
+import logging
 import os
 import jwt
 from datetime import datetime, timedelta, timezone
@@ -9,9 +10,20 @@ from sqlalchemy.orm import Session
 from database import get_db
 import models
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "dev-secret-change-in-production")
+DEV_JWT_SECRET = "dev-secret-change-in-production"
+JWT_SECRET = os.environ.get("JWT_SECRET", DEV_JWT_SECRET)
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_DAYS = 30
+
+logger = logging.getLogger("fintrack")
+
+
+def check_jwt_secret() -> None:
+    if os.environ.get("DATABASE_URL") and JWT_SECRET in ("", DEV_JWT_SECRET):
+        logger.error(
+            "JWT_SECRET is not set: login tokens can be forged. "
+            "Set a long random JWT_SECRET in the Render environment."
+        )
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()

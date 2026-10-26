@@ -20,6 +20,9 @@ from sqlalchemy.pool import StaticPool
 import database
 import main
 from helpers import make_user
+from ratelimit import limiter
+
+limiter.enabled = False
 
 
 @pytest.fixture
