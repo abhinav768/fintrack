@@ -1,45 +1,59 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { Search, ArrowRight, Trash2 } from "lucide-react";
-import { getLoans, deleteLoan } from "../api";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Search, ArrowRight, Trash2, Download, AlertTriangle } from "lucide-react";
+import { getLoans, deleteLoan, downloadExport } from "../api";
+import { formatCurrency, errorMessage } from "../lib/format";
+import { useToast } from "./Toast";
 
-const formatCurrency = (amount) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(amount);
+const FILTERS = ["all", "active", "overdue", "completed"];
 
 export default function Loans() {
+  const toast = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loans, setLoans] = useState([]);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const filter = FILTERS.includes(searchParams.get("filter")) ? searchParams.get("filter") : "all";
+  const setFilter = (f) => setSearchParams(f === "all" ? {} : { filter: f });
 
-  const fetchLoans = () => {
+  const fetchLoans = useCallback(() => {
     setLoading(true);
     getLoans()
       .then(setLoans)
+      .catch((err) => toast.error(errorMessage(err, "Failed to load loans")))
       .finally(() => setLoading(false));
-  };
+  }, [toast]);
 
   useEffect(() => {
     fetchLoans();
-  }, []);
+  }, [fetchLoans]);
 
   const handleDelete = async (e, id) => {
     e.preventDefault();
     e.stopPropagation();
     if (!confirm("Delete this loan and all its payments?")) return;
-    await deleteLoan(id);
-    fetchLoans();
+    try {
+      await deleteLoan(id);
+      toast.success("Loan deleted");
+      fetchLoans();
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to delete loan"));
+    }
+  };
+
+  const handleExport = async (kind) => {
+    try {
+      await downloadExport(kind);
+    } catch (err) {
+      toast.error(errorMessage(err, "Export failed"));
+    }
   };
 
   const filtered = loans.filter((l) => {
-    const matchesSearch = l.borrower_name
-      .toLowerCase()
-      .includes(search.toLowerCase());
-    const matchesFilter = filter === "all" || l.status === filter;
+    const matchesSearch = l.borrower_name.toLowerCase().includes(search.toLowerCase());
+    const matchesFilter =
+      filter === "all" ||
+      (filter === "overdue" ? l.overdue_count > 0 : l.status === filter);
     return matchesSearch && matchesFilter;
   });
 
@@ -60,12 +74,26 @@ export default function Loans() {
             {loans.length} total &middot; {loans.filter((l) => l.status === "active").length} active
           </p>
         </div>
-        <Link
-          to="/add-loan"
-          className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
-        >
-          + New Loan
-        </Link>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            onClick={() => handleExport("loans")}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            <Download size={14} /> Loans CSV
+          </button>
+          <button
+            onClick={() => handleExport("payments")}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+          >
+            <Download size={14} /> Payments CSV
+          </button>
+          <Link
+            to="/add-loan"
+            className="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700"
+          >
+            + New Loan
+          </Link>
+        </div>
       </div>
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row">
@@ -82,8 +110,8 @@ export default function Loans() {
             className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
           />
         </div>
-        <div className="flex gap-2">
-          {["all", "active", "completed"].map((f) => (
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -150,6 +178,11 @@ export default function Loans() {
                       </p>
                       <p className="text-xs text-slate-400">Remaining</p>
                     </div>
+                    {loan.overdue_count > 0 && (
+                      <span className="flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
+                        <AlertTriangle size={12} /> {loan.overdue_count}
+                      </span>
+                    )}
                     <span
                       className={`hidden rounded-full px-2.5 py-1 text-xs font-semibold sm:inline ${
                         loan.status === "active"
@@ -187,7 +220,7 @@ export default function Loans() {
                           ? "bg-emerald-500"
                           : "bg-emerald-400"
                       }`}
-                      style={{ width: `${progress}%` }}
+                      style={{ width: `${Math.min(100, progress)}%` }}
                     />
                   </div>
                 </div>

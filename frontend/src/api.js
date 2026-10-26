@@ -24,7 +24,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401 || err.response?.status === 403) {
+    if (err.response?.status === 401) {
       const path = window.location.pathname;
       if (path !== "/login" && path !== "/signup") {
         localStorage.removeItem("token");
@@ -78,3 +78,27 @@ export const sendTestNotification = () =>
   api.post("/notify/test").then((r) => r.data);
 export const sendChatMessage = (message) =>
   api.post("/chat", { message }).then((r) => r.data);
+
+export const changePassword = (data) =>
+  api.post("/auth/change-password", data).then((r) => r.data);
+export const getBorrower = (id) => api.get(`/borrowers/${id}`).then((r) => r.data);
+export const updateBorrower = (id, data) =>
+  api.put(`/borrowers/${id}`, data).then((r) => r.data);
+export const previewLoan = (params) =>
+  api.get("/loans/preview", { params }).then((r) => r.data);
+export const updateLoan = (id, data) => api.put(`/loans/${id}`, data).then((r) => r.data);
+export const updatePayment = (id, data) =>
+  api.patch(`/payments/${id}`, data).then((r) => r.data);
+export const getOverdue = () => api.get("/overdue").then((r) => r.data);
+export const generateNotifySecret = () =>
+  api.post("/settings/notifications/generate-secret").then((r) => r.data);
+
+export const downloadExport = async (kind) => {
+  const res = await api.get(`/export/${kind}.csv`, { responseType: "blob" });
+  const url = URL.createObjectURL(res.data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `fintrack-${kind}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+};

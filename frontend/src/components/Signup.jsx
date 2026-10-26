@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { IndianRupee, UserPlus, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "../AuthContext";
+import { errorMessage } from "../lib/format";
 
 export default function Signup() {
   const [username, setUsername] = useState("");
@@ -17,8 +18,12 @@ export default function Signup() {
       setError("Username and password are required");
       return;
     }
-    if (password.length < 4) {
-      setError("Password must be at least 4 characters");
+    if (!/^[A-Za-z0-9_.-]{3,32}$/.test(username.trim())) {
+      setError("Username must be 3-32 characters: letters, numbers, dot, underscore or dash");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       return;
     }
     setError("");
@@ -27,7 +32,7 @@ export default function Signup() {
       await signup(username, password);
       navigate("/profiles");
     } catch (err) {
-      setError(err.response?.data?.detail || "Signup failed");
+      setError(errorMessage(err, "Signup failed"));
     } finally {
       setLoading(false);
     }

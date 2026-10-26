@@ -6,6 +6,7 @@ import Loans from "./components/Loans";
 import LoanDetail from "./components/LoanDetail";
 import AddLoan from "./components/AddLoan";
 import Borrowers from "./components/Borrowers";
+import BorrowerDetail from "./components/BorrowerDetail";
 import Settings from "./components/Settings";
 import Login from "./components/Login";
 import Signup from "./components/Signup";
@@ -54,6 +55,7 @@ function AppRoutes() {
             <Route path="/loans/:id" element={<LoanDetail />} />
             <Route path="/add-loan" element={<AddLoan />} />
             <Route path="/borrowers" element={<Borrowers />} />
+            <Route path="/borrowers/:id" element={<BorrowerDetail />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/profiles" element={<ProfilePicker />} />
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -16,8 +16,11 @@ import {
   getNotificationSettings,
   updateNotificationSettings,
   sendTestNotification,
+  generateNotifySecret,
+  changePassword,
 } from "../api";
 import { useAuth } from "../AuthContext";
+import { errorMessage } from "../lib/format";
 
 export default function Settings() {
   const { user, profile, updateProfile } = useAuth();
@@ -31,6 +34,9 @@ export default function Settings() {
   const [testing, setTesting] = useState(false);
   const [configured, setConfigured] = useState(false);
   const [toast, setToast] = useState(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     getNotificationSettings().then((d) => {
@@ -77,8 +83,8 @@ export default function Settings() {
       });
       setConfigured(true);
       setToast({ type: "ok", msg: "Settings saved!" });
-    } catch {
-      setToast({ type: "error", msg: "Failed to save settings" });
+    } catch (err) {
+      setToast({ type: "error", msg: errorMessage(err, "Failed to save settings") });
     } finally {
       setSaving(false);
     }
@@ -99,18 +105,35 @@ export default function Settings() {
     }
   };
 
-  const generateSecret = () => {
-    const chars =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    let result = "";
-    for (let i = 0; i < 32; i++)
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    setSecret(result);
+  const generateSecret = async () => {
+    try {
+      const { notify_secret } = await generateNotifySecret();
+      setSecret(notify_secret);
+    } catch (err) {
+      setToast({ type: "error", msg: errorMessage(err, "Failed to generate secret") });
+    }
   };
 
-  const cronUrl = configured
-    ? `${window.location.origin}/api/notify/daily-reminders?token=${secret}`
-    : "";
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      setToast({ type: "error", msg: "New password must be at least 8 characters" });
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await changePassword({ current_password: currentPassword, new_password: newPassword });
+      setCurrentPassword("");
+      setNewPassword("");
+      setToast({ type: "ok", msg: "Password updated" });
+    } catch (err) {
+      setToast({ type: "error", msg: errorMessage(err, "Failed to change password") });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  const cronUrl = `${window.location.origin}/api/notify/daily-reminders`;
 
   return (
     <div className="space-y-6">
@@ -174,6 +197,39 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {/* Password */}
+      <form onSubmit={handleChangePassword} className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
+        <h3 className="mb-4 flex items-center gap-2 font-semibold text-slate-800">
+          <Shield size={18} className="text-emerald-600" /> Change Password
+        </h3>
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+          <input
+            type="password"
+            autoComplete="current-password"
+            placeholder="Current password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          />
+          <input
+            type="password"
+            autoComplete="new-password"
+            placeholder="New password (8+ characters)"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+          />
+          <button
+            type="submit"
+            disabled={changingPassword || !currentPassword || !newPassword}
+            className="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {changingPassword ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Update
+          </button>
+        </div>
+      </form>
 
       {/* Setup guide */}
       <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 sm:p-5">
@@ -315,7 +371,7 @@ export default function Settings() {
             <ExternalLink size={18} className="text-emerald-600" /> Cron Job URL
           </h3>
           <p className="mb-3 text-sm text-slate-500">
-            Copy this URL and set it up as a daily cron job at{" "}
+            Create a daily job at{" "}
             <a
               href="https://cron-job.org"
               target="_blank"
@@ -324,22 +380,31 @@ export default function Settings() {
             >
               cron-job.org
             </a>{" "}
-            to trigger at <strong>9:00 AM IST</strong> (3:30 AM UTC).
+            for <strong>9:00 AM IST</strong> (3:30 AM UTC) with this URL, and under{" "}
+            <em>Advanced → Headers</em> add the header below. Keeping the secret in a header
+            stops it from appearing in logs.
           </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 overflow-x-auto rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700 break-all">
-              {cronUrl}
-            </code>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(cronUrl);
-                setToast({ type: "ok", msg: "URL copied!" });
-              }}
-              className="shrink-0 rounded-lg border border-slate-300 p-2 text-slate-500 hover:bg-slate-50"
-            >
-              <Copy size={16} />
-            </button>
-          </div>
+          {[
+            { label: "URL", value: cronUrl },
+            { label: "Header", value: `X-Notify-Token: ${secret}` },
+          ].map(({ label, value }) => (
+            <div key={label} className="mb-2 flex items-center gap-2">
+              <span className="w-14 shrink-0 text-xs font-medium text-slate-500">{label}</span>
+              <code className="flex-1 overflow-x-auto break-all rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-700">
+                {value}
+              </code>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(label === "Header" ? secret : value);
+                  setToast({ type: "ok", msg: `${label === "Header" ? "Token" : "URL"} copied!` });
+                }}
+                className="shrink-0 rounded-lg border border-slate-300 p-2 text-slate-500 hover:bg-slate-50"
+                title={label === "Header" ? "Copy token value" : "Copy URL"}
+              >
+                <Copy size={16} />
+              </button>
+            </div>
+          ))}
           <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
             <strong>cron-job.org schedule:</strong> Set execution time to{" "}
             <code className="rounded bg-amber-100 px-1">03:30</code> UTC (=

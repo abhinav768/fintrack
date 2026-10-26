@@ -7,7 +7,6 @@ import {
   Clock,
   ArrowRight,
   AlertCircle,
-  Wallet,
   CalendarDays,
   Pencil,
   X,
@@ -20,48 +19,54 @@ import {
   getBalance,
   updateBalance,
   getMonthlyCollection,
+  getOverdue,
 } from "../api";
-
-const formatCurrency = (amount) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(amount);
+import { formatCurrency, formatDayMonth, errorMessage } from "../lib/format";
+import { useToast } from "./Toast";
 
 export default function Dashboard() {
   const { profile } = useAuth();
+  const toast = useToast();
   const [stats, setStats] = useState(null);
   const [loans, setLoans] = useState([]);
   const [balance, setBalance] = useState(null);
   const [monthly, setMonthly] = useState(null);
+  const [overdue, setOverdue] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingBalance, setEditingBalance] = useState(false);
   const [newBalance, setNewBalance] = useState("");
 
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       getDashboard(),
       getLoans(),
       getBalance(),
       getMonthlyCollection(),
+      getOverdue(),
     ])
-      .then(([s, l, b, m]) => {
-        setStats(s);
-        setLoans(l);
-        setBalance(b);
-        setMonthly(m);
+      .then(([s, l, b, m, o]) => {
+        if (s.status === "fulfilled") setStats(s.value);
+        if (l.status === "fulfilled") setLoans(l.value);
+        if (b.status === "fulfilled") setBalance(b.value);
+        if (m.status === "fulfilled") setMonthly(m.value);
+        if (o.status === "fulfilled") setOverdue(o.value);
+        if ([s, l, b, m, o].some((r) => r.status === "rejected")) {
+          toast.error("Some dashboard data couldn't be loaded. Try refreshing.");
+        }
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [toast]);
 
   const handleSaveBalance = async () => {
     const val = parseFloat(newBalance);
     if (isNaN(val)) return;
-    await updateBalance({ base_balance: val });
-    const b = await getBalance();
-    setBalance(b);
-    setEditingBalance(false);
+    try {
+      setBalance(await updateBalance({ base_balance: val }));
+      setEditingBalance(false);
+      toast.success("Balance updated");
+    } catch (err) {
+      toast.error(errorMessage(err, "Failed to update balance"));
+    }
   };
 
   if (loading) {
@@ -72,7 +77,13 @@ export default function Dashboard() {
     );
   }
 
-  if (!stats) return null;
+  if (!stats) {
+    return (
+      <div className="py-20 text-center text-sm text-slate-500">
+        Couldn't load your dashboard. Check your connection and refresh.
+      </div>
+    );
+  }
 
   const statCards = [
     {
@@ -189,6 +200,16 @@ export default function Dashboard() {
                       </p>
                     </div>
                   )}
+                  {balance.new_lending > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-500">
+                        − Lent
+                      </p>
+                      <p className="mt-0.5 text-sm font-semibold text-amber-400">
+                        {formatCurrency(balance.new_lending)}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -220,6 +241,45 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* Overdue */}
+      {overdue && overdue.count > 0 && (
+        <div className="mb-6 overflow-hidden rounded-xl border border-red-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-red-100 bg-red-50/60 px-5 py-4">
+            <div className="flex items-center gap-2.5">
+              <AlertCircle size={18} className="text-red-600" />
+              <h3 className="text-base font-semibold text-red-800">
+                {overdue.count} overdue EMI{overdue.count > 1 ? "s" : ""}
+              </h3>
+            </div>
+            <span className="text-sm font-bold text-red-700">
+              {formatCurrency(overdue.total_outstanding)}
+            </span>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {overdue.items.slice(0, 5).map((item) => (
+              <Link
+                key={`${item.loan_id}-${item.month_number}`}
+                to={`/loans/${item.loan_id}`}
+                className="flex items-center justify-between px-5 py-3 text-sm hover:bg-slate-50/80"
+              >
+                <div>
+                  <p className="font-medium text-slate-700">{item.borrower_name}</p>
+                  <p className="text-xs text-slate-400">
+                    Due {formatDayMonth(item.due_date)} · {item.days_overdue} days late
+                  </p>
+                </div>
+                <span className="font-semibold text-red-600">{formatCurrency(item.outstanding)}</span>
+              </Link>
+            ))}
+          </div>
+          {overdue.count > 5 && (
+            <Link to="/loans?filter=overdue" className="block px-5 py-3 text-center text-sm font-medium text-red-700 hover:bg-red-50/60">
+              View all overdue loans
+            </Link>
+          )}
+        </div>
+      )}
 
       {/* Monthly Collection */}
       {monthly && (
@@ -297,10 +357,7 @@ export default function Dashboard() {
               {[...monthly.emis]
                 .sort((a, b) => a.due_date.localeCompare(b.due_date))
                 .map((emi) => {
-                  const d = new Date(emi.due_date + "T00:00:00");
-                  const day = d.getDate();
-                  const mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
-                  const dateLabel = `${day} ${mon}`;
+                  const dateLabel = formatDayMonth(emi.due_date);
                   return (
                 <Link
                   key={`${emi.loan_id}-${emi.month_number}`}

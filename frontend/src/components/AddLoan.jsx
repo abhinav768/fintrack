@@ -8,14 +8,8 @@ import {
   PlusCircle,
   ArrowRight,
 } from "lucide-react";
-import { getBorrowers, createBorrower, createLoan } from "../api";
-
-const formatCurrency = (amount) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(amount);
+import { getBorrowers, createBorrower, createLoan, previewLoan } from "../api";
+import { formatCurrency, todayISO, errorMessage } from "../lib/format";
 
 export default function AddLoan() {
   const navigate = useNavigate();
@@ -26,20 +20,37 @@ export default function AddLoan() {
   const [phone, setPhone] = useState("");
   const [principal, setPrincipal] = useState("");
   const [totalMonths, setTotalMonths] = useState(10);
-  const [loanDate, setLoanDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [monthlyRate, setMonthlyRate] = useState("4");
+  const [loanDate, setLoanDate] = useState(todayISO());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [preview, setPreview] = useState(null);
 
   useEffect(() => {
-    getBorrowers().then(setBorrowers);
+    getBorrowers()
+      .then(setBorrowers)
+      .catch(() => setError("Failed to load borrowers"));
   }, []);
 
   const principalNum = parseFloat(principal) || 0;
-  const interestPct = 4 * totalMonths;
-  const totalReturn = principalNum * (1 + interestPct / 100);
-  const monthlyEmi = totalMonths > 0 ? totalReturn / totalMonths : 0;
+  const rateNum = parseFloat(monthlyRate);
+
+  useEffect(() => {
+    if (!(principalNum > 0) || !(rateNum >= 0) || !(totalMonths >= 1)) {
+      setPreview(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      previewLoan({ principal: principalNum, monthly_rate: rateNum, months: totalMonths })
+        .then((p) => !cancelled && setPreview(p))
+        .catch(() => !cancelled && setPreview(null));
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [principalNum, rateNum, totalMonths]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -78,10 +89,11 @@ export default function AddLoan() {
         principal: principalNum,
         loan_date: loanDate,
         total_months: totalMonths,
+        monthly_rate: rateNum,
       });
       navigate("/loans");
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to create loan");
+      setError(errorMessage(err, "Failed to create loan"));
     } finally {
       setSubmitting(false);
     }
@@ -212,10 +224,10 @@ export default function AddLoan() {
               <input
                 type="number"
                 min="1"
-                max="60"
+                max="120"
                 value={totalMonths}
                 onChange={(e) =>
-                  setTotalMonths(Math.max(1, parseInt(e.target.value) || 1))
+                  setTotalMonths(Math.min(120, Math.max(1, parseInt(e.target.value) || 1)))
                 }
                 className="w-24 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-center text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
               />
@@ -223,6 +235,23 @@ export default function AddLoan() {
             <p className="mt-1.5 text-xs text-slate-400">
               Quick pick 10 or 15, or type any custom duration
             </p>
+          </div>
+
+          {/* Interest rate */}
+          <div className="mb-6">
+            <label className="mb-1.5 block text-sm font-semibold text-slate-700">
+              Interest Rate (% per month)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="20"
+              step="0.1"
+              value={monthlyRate}
+              onChange={(e) => setMonthlyRate(e.target.value)}
+              className="w-32 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            />
+            <p className="mt-1.5 text-xs text-slate-400">Simple interest on the principal. Default 4%.</p>
           </div>
 
           {/* Loan date */}
@@ -248,7 +277,7 @@ export default function AddLoan() {
           </div>
 
           {/* Preview */}
-          {principalNum > 0 && (
+          {preview && (
             <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
               <h4 className="mb-3 text-sm font-semibold text-emerald-800">
                 Loan Summary
@@ -262,22 +291,23 @@ export default function AddLoan() {
                 </div>
                 <div>
                   <p className="text-xs text-emerald-600">
-                    Total Return ({interestPct}%)
+                    Total Return ({preview.interest_pct}%)
                   </p>
                   <p className="text-base font-bold text-emerald-800">
-                    {formatCurrency(totalReturn)}
+                    {formatCurrency(preview.total_return)}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-emerald-600">Monthly EMI</p>
                   <p className="text-base font-bold text-emerald-800">
-                    {formatCurrency(monthlyEmi)}
+                    {formatCurrency(preview.monthly_emi)}
                   </p>
                 </div>
               </div>
               <div className="mt-3 border-t border-emerald-200 pt-3 text-center text-xs text-emerald-600">
-                {totalMonths} monthly installments of{" "}
-                {formatCurrency(monthlyEmi)} each
+                {totalMonths} monthly installments of {formatCurrency(preview.monthly_emi)}
+                {preview.last_emi !== preview.monthly_emi &&
+                  ` (last one ${preview.last_emi.toLocaleString("en-IN", { maximumFractionDigits: 2 })})`}
               </div>
             </div>
           )}
