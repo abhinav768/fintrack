@@ -24,6 +24,10 @@
     --sky: 30 110 180;
     --violet: 118 76 196;
     --grain: 0.06;
+    --wash-lime: 0.32;
+    --wash-sky: 0.12;
+    --wash-amber: 0.08;
+    --contour: 0.13;
   }
   .dark {
     color-scheme: dark;
@@ -45,6 +49,10 @@
     --sky: 124 196 255;
     --violet: 201 167 255;
     --grain: 0.045;
+    --wash-lime: 0.09;
+    --wash-sky: 0.06;
+    --wash-amber: 0.03;
+    --contour: 0.07;
   }
   body {
     @apply bg-ink-950 text-paper;
@@ -79,6 +87,21 @@
 }
 
 @layer components {
+  .backdrop-wash {
+    background:
+      radial-gradient(40rem 32rem at 88% -6%, rgb(var(--lime) / var(--wash-lime)), transparent 70%),
+      radial-gradient(36rem 30rem at -4% 104%, rgb(var(--sky) / var(--wash-sky)), transparent 70%),
+      radial-gradient(28rem 22rem at 55% 62%, rgb(var(--amber) / var(--wash-amber)), transparent 70%);
+  }
+  .backdrop-fade {
+    -webkit-mask-image: radial-gradient(ellipse 85% 75% at 50% 50%, transparent 25%, black 80%);
+    mask-image: radial-gradient(ellipse 85% 75% at 50% 50%, transparent 25%, black 80%);
+  }
+  .backdrop-contours {
+    background-color: rgb(var(--line) / var(--contour));
+    -webkit-mask: url("./assets/contours.svg") center / cover no-repeat;
+    mask: url("./assets/contours.svg") center / cover no-repeat;
+  }
   .card {
     @apply rounded-2xl border border-line/[0.07] bg-ink-900;
   }

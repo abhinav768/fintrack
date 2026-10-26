@@ -54,7 +54,7 @@ export default function ProfilePicker() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-ink-950 px-6 py-8 sm:px-12 lg:px-20">
+    <div className="flex min-h-screen flex-col px-6 py-8 sm:px-12 lg:px-20">
       <header className="flex items-center justify-between">
         <Wordmark className="text-3xl" />
         <div className="flex items-center gap-4">

@@ -5,7 +5,7 @@ const TICKER = ["Loans", "EMIs", "Borrowers", "Reminders", "Interest", "Collecti
 
 export default function AuthLayout({ eyebrow, title, accent, children, footer }) {
   return (
-    <div className="grid min-h-screen bg-ink-950 lg:grid-cols-[1.1fr_1fr]">
+    <div className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
       <aside className="relative hidden flex-col justify-between overflow-hidden border-r border-line/[0.07] p-12 lg:flex">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.35]"

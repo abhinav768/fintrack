@@ -105,7 +105,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Desktop rail */}
-      <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-line/[0.07] bg-ink-950 md:flex">
+      <aside className="hidden h-full w-64 shrink-0 flex-col border-r border-line/[0.07] bg-ink-950/60 backdrop-blur-xl md:flex">
         <div className="px-7 pb-10 pt-9">
           <Wordmark className="text-[2.1rem]" />
           <p className="eyebrow mt-3 truncate" title={profile?.name}>
